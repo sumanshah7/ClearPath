@@ -46,3 +46,5 @@ pa-engine/data/
 .cache/
 tmp/
 temp/
+.vercel
+.env*
