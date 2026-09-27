@@ -1,0 +1,72 @@
+[
+  {
+    "id": "facility-clearpath-asc",
+    "name": "ClearPath Ambulatory Surgery Center",
+    "npi": "1543210987",
+    "facility_type": "ASC",
+    "clinic_id": "clinic-clearpath-main",
+    "address": {
+      "line1": "102 Health Plaza",
+      "city": "Columbus",
+      "state": "OH",
+      "postal_code": "43215"
+    },
+    "synthetic": true
+  },
+  {
+    "id": "facility-lakeside-mri",
+    "name": "Lakeside MRI Suite",
+    "npi": "1432109876",
+    "facility_type": "imaging",
+    "clinic_id": "clinic-lakeside-imaging",
+    "address": {
+      "line1": "452 Lakeview Drive",
+      "city": "Dublin",
+      "state": "OH",
+      "postal_code": "43017"
+    },
+    "synthetic": true
+  },
+  {
+    "id": "facility-riverside-hospital",
+    "name": "Riverside Community Hospital",
+    "npi": "1321098765",
+    "facility_type": "hospital",
+    "clinic_id": "clinic-riverside-neuro",
+    "address": {
+      "line1": "1 Medical Center Drive",
+      "city": "Cleveland",
+      "state": "OH",
+      "postal_code": "44114"
+    },
+    "synthetic": true
+  },
+  {
+    "id": "facility-metro-or",
+    "name": "Metro Ortho Procedure Suite",
+    "npi": "1210987654",
+    "facility_type": "ASC",
+    "clinic_id": "clinic-metro-ortho",
+    "address": {
+      "line1": "14 Stadium Road",
+      "city": "Akron",
+      "state": "OH",
+      "postal_code": "44308"
+    },
+    "synthetic": true
+  },
+  {
+    "id": "facility-harbor-rehab",
+    "name": "Harbor Rehab Gym",
+    "npi": "1109876543",
+    "facility_type": "rehab",
+    "clinic_id": "clinic-harbor-pt",
+    "address": {
+      "line1": "7 Harbor Lane",
+      "city": "Toledo",
+      "state": "OH",
+      "postal_code": "43604"
+    },
+    "synthetic": true
+  }
+]

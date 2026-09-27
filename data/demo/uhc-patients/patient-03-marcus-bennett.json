@@ -1,0 +1,41 @@
+{
+  "id": "uhc-pat-03-marcus-bennett",
+  "full_name": "Marcus Bennett",
+  "first_name": "Marcus",
+  "last_name": "Bennett",
+  "dob": "1965-12-11",
+  "sex": "male",
+  "member_id": "UHC-90344",
+  "mrn": "MRN-10903",
+  "phone": "555-4103",
+  "email": "marcus.bennett@uhc.patient.demo",
+  "address": {
+    "line1": "19 Lake Shore Drive",
+    "city": "Cleveland",
+    "state": "OH",
+    "postal_code": "44114"
+  },
+  "insurance": {
+    "payer_id": "payer-uhc-demo",
+    "insurer": "UnitedHealthcare Community Plan of Ohio",
+    "plan_name": "Dual Complete OH-S3",
+    "plan_year": "2026",
+    "member_id": "UHC-90344",
+    "group_number": "UHC-OH-S3",
+    "effective_date": "2026-01-01"
+  },
+  "suggested_order": {
+    "order_text": "MRI cervical spine without contrast",
+    "service_code": "72141",
+    "service_category": "Outpatient diagnostic tests - imaging",
+    "pa_required": true,
+    "pa_status": "required",
+    "icd10_codes": ["M54.12"]
+  },
+  "diagnoses": [
+    { "code": "M54.12", "display": "Radiculopathy, cervical region" }
+  ],
+  "synthetic": true,
+  "demo_set": "uhc-patients",
+  "demo_tag": "pa_required"
+}

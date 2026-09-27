@@ -24,12 +24,24 @@ export function SourceBadge({ kind, url }: { kind?: string; url?: string | null 
 
 export function ruleConfidence(input: {
   judge_verdict?: string | null;
-  grounding?: { passed?: boolean } | null;
+  judge_reason?: string | null;
+  grounding?: { passed?: boolean; failures?: string[] } | null;
   question_verdict?: string | null;
-}): { sure: boolean; detail: string } {
+}): { sure: boolean; detail: string; importOnly?: boolean } {
   const grounded = input.grounding?.passed === true;
   const accurate = input.judge_verdict === "ACCURATE";
   const questionsOk = input.question_verdict == null || input.question_verdict === "complete";
+  const importOnly =
+    input.judge_verdict === "UNAVAILABLE" &&
+    (/structured import|awaiting extract\+judge|overview pipeline/i.test(input.judge_reason || "") ||
+      (input.grounding?.failures || []).some((f) => /structured import|overview pipeline/i.test(f)));
+  if (importOnly) {
+    return {
+      sure: false,
+      importOnly: true,
+      detail: "Structured import only — not page-grounded or judged. Run overview Reprocess for engine rules.",
+    };
+  }
   if (grounded && accurate && questionsOk) {
     return { sure: true, detail: "The quote is on the cited page and the judge called it accurate." };
   }
@@ -44,7 +56,8 @@ export function ruleConfidence(input: {
   return { sure: false, detail: "This row has not been fully checked." };
 }
 
-export function ConfidenceBadge({ sure }: { sure: boolean }) {
+export function ConfidenceBadge({ sure, importOnly }: { sure: boolean; importOnly?: boolean }) {
+  if (importOnly) return <span className="badge blue">Import — not judged</span>;
   return <span className={`badge ${sure ? "green" : "amber"}`}>{sure ? "100% sure" : "Needs a look"}</span>;
 }
 

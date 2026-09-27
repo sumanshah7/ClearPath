@@ -6,7 +6,7 @@ from fastapi import APIRouter
 
 from app.repository import get_repo, new_id
 from app.review.present import present_item
-from app.review.review import accept, apply_suggestion, edit, go_live, queue, reject
+from app.review.review import accept, apply_suggestion, edit, go_live, queue, reject, take_offline
 
 router = APIRouter(prefix="/policies")
 
@@ -89,6 +89,42 @@ def live(policy_id: str, body: dict):
     return go_live(policy_id, body["reviewer"])
 
 
+@router.post("/{policy_id}/take-offline")
+def offline(policy_id: str, body: dict):
+    return take_offline(policy_id, body["reviewer"])
+
+
 @router.post("/{policy_id}/blocks/{block_id}/go-live")
 def block_live(policy_id: str, block_id: str, body: dict):
     return go_live(policy_id, body["reviewer"], block_id=block_id)
+
+
+@router.post("/{policy_id}/blocks/{block_id}/take-offline")
+def block_offline(policy_id: str, block_id: str, body: dict):
+    return take_offline(policy_id, body["reviewer"], block_id=block_id)
+
+
+@router.get("/{policy_id}/questionnaires")
+def list_questionnaires(policy_id: str):
+    from app.check import service as check_service
+
+    return check_service.list_policy_questionnaires(policy_id)
+
+
+@router.delete("/{policy_id}/questionnaires/{questionnaire_id}")
+def delete_questionnaire(policy_id: str, questionnaire_id: str):
+    from app.check import service as check_service
+
+    return check_service.delete_questionnaire(policy_id, questionnaire_id)
+
+
+@router.post("/{policy_id}/questionnaires/{questionnaire_id}/regenerate")
+def regenerate_questionnaire(policy_id: str, questionnaire_id: str, body: dict | None = None):
+    from app.check import service as check_service
+
+    body = body or {}
+    return check_service.regenerate_questionnaire(
+        policy_id,
+        questionnaire_id,
+        reviewer=body.get("reviewer") or "reviewer",
+    )

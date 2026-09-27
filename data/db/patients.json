@@ -1,0 +1,107 @@
+[
+  {
+    "id": "11111111-1111-4111-8111-111111111111",
+    "full_name": "Maria Rodriguez",
+    "first_name": "Maria",
+    "last_name": "Rodriguez",
+    "dob": "1974-03-11",
+    "sex": "female",
+    "member_id": "SYN-0042",
+    "mrn": "MRN-10042",
+    "phone": "555-1001",
+    "email": "maria.rodriguez@patient.demo",
+    "address": {
+      "line1": "412 Oak Street",
+      "city": "Columbus",
+      "state": "OH",
+      "postal_code": "43215"
+    },
+    "preferred_clinic_id": "clinic-clearpath-main",
+    "primary_provider_id": "22222222-2222-4222-8222-222222222222",
+    "synthetic": true
+  },
+  {
+    "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    "full_name": "James Mitchell",
+    "first_name": "James",
+    "last_name": "Mitchell",
+    "dob": "1968-07-22",
+    "sex": "male",
+    "member_id": "SYN-0187",
+    "mrn": "MRN-10187",
+    "phone": "555-1002",
+    "email": "james.mitchell@patient.demo",
+    "address": {
+      "line1": "88 Maple Ave",
+      "city": "Dublin",
+      "state": "OH",
+      "postal_code": "43017"
+    },
+    "preferred_clinic_id": "clinic-lakeside-imaging",
+    "primary_provider_id": "44444444-4444-4444-8444-444444444444",
+    "synthetic": true
+  },
+  {
+    "id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    "full_name": "Aisha Khan",
+    "first_name": "Aisha",
+    "last_name": "Khan",
+    "dob": "1990-11-03",
+    "sex": "female",
+    "member_id": "SYN-0309",
+    "mrn": "MRN-10309",
+    "phone": "555-1003",
+    "email": "aisha.khan@patient.demo",
+    "address": {
+      "line1": "15 River Road",
+      "city": "Cleveland",
+      "state": "OH",
+      "postal_code": "44114"
+    },
+    "preferred_clinic_id": "clinic-riverside-neuro",
+    "primary_provider_id": "66666666-6666-4666-8666-666666666666",
+    "synthetic": true
+  },
+  {
+    "id": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+    "full_name": "Robert Nguyen",
+    "first_name": "Robert",
+    "last_name": "Nguyen",
+    "dob": "1959-01-18",
+    "sex": "male",
+    "member_id": "UHC-77421",
+    "mrn": "MRN-10774",
+    "phone": "555-1004",
+    "email": "robert.nguyen@patient.demo",
+    "address": {
+      "line1": "2300 Summit Blvd",
+      "city": "Akron",
+      "state": "OH",
+      "postal_code": "44308"
+    },
+    "preferred_clinic_id": "clinic-clearpath-main",
+    "primary_provider_id": "55555555-5555-4555-8555-555555555555",
+    "synthetic": true
+  },
+  {
+    "id": "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+    "full_name": "Elena Vasquez",
+    "first_name": "Elena",
+    "last_name": "Vasquez",
+    "dob": "1983-05-29",
+    "sex": "female",
+    "member_id": "SYN-0455",
+    "mrn": "MRN-10455",
+    "phone": "555-1005",
+    "email": "elena.vasquez@patient.demo",
+    "address": {
+      "line1": "9 Harbor Lane",
+      "city": "Toledo",
+      "state": "OH",
+      "postal_code": "43604"
+    },
+    "preferred_clinic_id": "clinic-clearpath-main",
+    "primary_provider_id": "33333333-3333-4333-8333-333333333333",
+    "synthetic": true
+  }
+]

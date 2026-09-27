@@ -153,3 +153,43 @@ def test_labels_match_fuzzy():
     assert labels_match("Cardiac rehabilitation services", "Cardiac rehabilitation services visit")
     assert labels_match("Outpatient diagnostic tests - X-rays", "Outpatient diagnostic tests - X-rays")
     assert not labels_match("Emergency care", "Hospice care")
+
+
+def test_listing_match_prefers_discriminating_sibling():
+    from app.ingest.pa_markers import best_coverage_for_listing, listing_match_score
+
+    listing = "Outpatient diagnostic tests - X-rays"
+    stem = {"id": "1", "service_label": "Outpatient diagnostic tests"}
+    xrays = {"id": "2", "service_label": "Outpatient diagnostic tests - X-rays"}
+    lab = {"id": "3", "service_label": "Outpatient diagnostic tests - laboratory tests"}
+    assert listing_match_score(listing, xrays["service_label"]) > listing_match_score(
+        listing, stem["service_label"]
+    )
+    best = best_coverage_for_listing(listing, [stem, lab, xrays])
+    assert best is not None and best["id"] == "2"
+
+
+def test_fold_closes_open_paren_after_status():
+    from app.ingest.pa_markers import _fold_name_continuation
+
+    name = _fold_name_continuation(
+        "Immunizations (flu, pneumonia,",
+        "COVID-19, Hepatitis B, others) d 2",
+    )
+    assert "Hepatitis" in name
+    assert name.count("(") == name.count(")")
+
+
+def test_choose_richer_listing_by_name_completeness():
+    from app.ingest.pa_markers import choose_richer_listing
+
+    short = [
+        {"service_label": "Cardiovascular disease risk", "listing_index": 8},
+        {"service_label": "Dental services", "listing_index": 15},
+    ]
+    fuller = [
+        {"service_label": "Cardiovascular disease risk reduction visit", "listing_index": 8},
+        {"service_label": "Dental services (Medicare-covered, limited medical circumstances)", "listing_index": 15},
+    ]
+    assert choose_richer_listing([short, fuller]) is fuller
+

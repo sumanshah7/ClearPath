@@ -1,0 +1,41 @@
+{
+  "id": "uhc-pat-05-diego-ramirez",
+  "full_name": "Diego Ramirez",
+  "first_name": "Diego",
+  "last_name": "Ramirez",
+  "dob": "1977-02-09",
+  "sex": "male",
+  "member_id": "UHC-55108",
+  "mrn": "MRN-10551",
+  "phone": "555-4105",
+  "email": "diego.ramirez@uhc.patient.demo",
+  "address": {
+    "line1": "412 Oak Street",
+    "city": "Dublin",
+    "state": "OH",
+    "postal_code": "43017"
+  },
+  "insurance": {
+    "payer_id": "payer-uhc-demo",
+    "insurer": "UnitedHealthcare Community Plan of Ohio",
+    "plan_name": "Dual Complete OH-S3",
+    "plan_year": "2026",
+    "member_id": "UHC-55108",
+    "group_number": "UHC-OH-S3",
+    "effective_date": "2026-01-01"
+  },
+  "suggested_order": {
+    "order_text": "CT lumbar spine without contrast",
+    "service_code": "72131",
+    "service_category": "Outpatient diagnostic tests - imaging",
+    "pa_required": true,
+    "pa_status": "required",
+    "icd10_codes": ["M48.06"]
+  },
+  "diagnoses": [
+    { "code": "M48.06", "display": "Spinal stenosis, lumbar region" }
+  ],
+  "synthetic": true,
+  "demo_set": "uhc-patients",
+  "demo_tag": "pa_required"
+}

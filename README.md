@@ -1,17 +1,31 @@
 # ClearPath PA
 
-Prior authorization for ClearPath Health. A document is read, a second model flags risk, and a person decides at every gate. Patients in this demo are synthetic.
+Prior authorization workspace for real insurer PDFs (Evidence of Coverage, clinical policies, drug criteria). Documents are extracted with LLMs, a second model judges risk, and a human decides at every gate before anything goes live.
 
-The rules live in `docs/pa-constitution/`. `memory.md` is the decision log.
+Synthetic patients are used for demos. Production rules always come from uploaded documents — never from a hardcoded service catalog.
 
-## Run
+## Repo layout
+
+| Path | Role |
+|------|------|
+| `pa-engine/` | FastAPI extract / review / check / FHIR engine |
+| `web/` | Next.js admin + doctor + insurer UI |
+| `docs/pa-constitution/` | Product rules and decision log (`memory.md`) |
+| `data/` | Local SQLite / JSON demo data (DBs and uploads are gitignored) |
+
+## Quick start
 
 ```bash
+# 1. Python env
 python3.11 -m venv .venv
 .venv/bin/pip install -r pa-engine/requirements.txt
-.venv/bin/python pa-engine/scripts/reset_demo.py
 
-cd pa-engine && ../.venv/bin/uvicorn app.main:app --reload --port 8000
+# 2. Secrets (never commit .env)
+cp .env.example .env
+# edit .env — set OPENAI_API_KEY (and optional GROK_/GEMINI_ judge keys)
+
+# 3. API
+cd pa-engine && ../.venv/bin/uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 In another terminal:
@@ -22,25 +36,45 @@ cd web && npm install && npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-The sample library is a labeled fictional fallback so the app runs without model keys. Set `OPENAI_API_KEY` and `GEMINI_API_KEY` (or `GROK_API_KEY` with `JUDGE_PROVIDER=grok`) to read a published PDF through the same pipeline. Copy `.env.example` to `.env`.
-
 ## What you can do
 
-1. Policy library: load the sample, or upload a text-layer PDF. Accept, edit, or reject each item, then go live.
-2. Order: check an office visit (not required) or lumbar MRI code `72148` (4 of 5 met).
-3. Add the withheld physical-therapy note. Readiness becomes 5 of 5.
-4. Set an answer aside, enter a replacement with an attestation, verify every rule, preview, and submit. The fake insurer approves. It never produces a denial.
+1. **Policy library** — upload a text-layer EOC / clinical PDF, review extracted coverage or rules, Accept / Edit / Reject, then **Go Live**.
+2. **PA listing reconcile** (benefit summaries) — attach a prior-auth category listing PDF so PA flags match the listing catalog (e.g. 41 required / 8 conditional / 41 not required of 90).
+3. **Order desk** — pick patient + live plan + service; engine matches coverage and builds criteria / questionnaire.
+4. **Clinician / insurer** — answer questions, submit packet; demo insurer never auto-denies.
+
+## PA listing reconcile
+
+```bash
+curl -sS -X POST \
+  "http://127.0.0.1:8000/policies/{POLICY_ID}/reconcile-pa" \
+  -F "listing=@/path/to/prior_authorization.pdf" \
+  -F "listing_alt=@/path/to/prior_authorization_fhir.pdf"
+```
+
+When two listings are uploaded, the engine keeps the parse with more complete service names. Listing rows become the Gate-1 catalog; unmatched EOC fragments are dropped from the review queue.
 
 ## Tests
 
 ```bash
-cd pa-engine && ../.venv/bin/python -m pytest
+cd /path/to/clearpath-pa
+.venv/bin/pytest pa-engine/tests/ -q
 ```
 
-After a code change (frees old :8000/:3000 listeners, starts a fresh API, runs edge + port tests):
+## Environment
 
-```bash
-cd pa-engine && ../.venv/bin/python scripts/verify_change.py --keep
-```
+Copy `.env.example` → `.env`. Important variables:
 
-Omit `--keep` to stop the temporary API when the suite finishes. Add `--web` to also restart Next on :3000.
+- `OPENAI_API_KEY` / `OPENAI_MODEL` — extract + most LLM stages  
+- `JUDGE_PROVIDER` — `gemini` \| `grok` \| etc.  
+- `GROK_API_KEY` / `GEMINI_API_KEY` — judge provider keys  
+- `TIMEOUT_EXTRACT_SECONDS` — raise for dense EOCs (e.g. `240`)  
+- `DEMO_MODE` — `true` uses fixtures without live model calls  
+
+**`.env` is gitignored.** Do not commit API keys.
+
+## Safety / product notes
+
+- No denial path in the demo insurer (`approved` / `info_requested` only).  
+- Go Live requires a human decision on every active item.  
+- Rejected rows stay out of the live catalog and FHIR InsurancePlan.

@@ -17,8 +17,8 @@ export default function Home() {
           <Link className="topbar-link" href="/insurer">
             Insurer
           </Link>
-          <Link className="btn" href="/doctor/upload">
-            Upload report
+          <Link className="btn" href="/doctor/login">
+            Doctor sign in
           </Link>
         </nav>
       </header>
@@ -33,11 +33,11 @@ export default function Home() {
             reach the care that can change an outcome.
           </p>
           <div className="hero-actions">
-            <Link className="btn" href="/doctor/upload">
-              Upload a report
+            <Link className="btn" href="/doctor/login">
+              Doctor sign in
             </Link>
-            <Link className="btn secondary" href="/doctor">
-              Open order desk
+            <Link className="btn secondary" href="/doctor/upload">
+              Upload a report
             </Link>
           </div>
           <ul className="hero-points">

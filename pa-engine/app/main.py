@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -9,8 +11,24 @@ from fastapi.responses import JSONResponse
 from app.api import boundary, fhir, health, pa, policies, reports, review, uploads
 from app.config import settings
 from app.errors import ApiError
+from app.repository import get_repo
 
-app = FastAPI(title="ClearPath PA Engine", version="4")
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    # Orphaned ingestion_runs / status=ingesting after prior process kill/reload.
+    try:
+        n = get_repo().reclaim_stale_ingestion()
+        if n:
+            import logging
+
+            logging.getLogger("clearpath").warning("Reclaimed %s stale ingestion run(s) on startup", n)
+    except Exception:
+        pass
+    yield
+
+
+app = FastAPI(title="ClearPath PA Engine", version="4", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origins,

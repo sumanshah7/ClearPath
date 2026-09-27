@@ -1,0 +1,41 @@
+{
+  "id": "uhc-pat-10-grace-kim",
+  "full_name": "Grace Kim",
+  "first_name": "Grace",
+  "last_name": "Kim",
+  "dob": "1975-07-14",
+  "sex": "female",
+  "member_id": "UHC-61044",
+  "mrn": "MRN-10610",
+  "phone": "555-4110",
+  "email": "grace.kim@uhc.patient.demo",
+  "address": {
+    "line1": "3 Harbor Court",
+    "city": "Toledo",
+    "state": "OH",
+    "postal_code": "43604"
+  },
+  "insurance": {
+    "payer_id": "payer-uhc-demo",
+    "insurer": "UnitedHealthcare Community Plan of Ohio",
+    "plan_name": "Dual Complete OH-S3",
+    "plan_year": "2026",
+    "member_id": "UHC-61044",
+    "group_number": "UHC-OH-S3",
+    "effective_date": "2026-01-01"
+  },
+  "suggested_order": {
+    "order_text": "CT brain without contrast",
+    "service_code": "70450",
+    "service_category": "CT brain without contrast",
+    "pa_required": true,
+    "pa_status": "required",
+    "icd10_codes": ["R51.9"]
+  },
+  "diagnoses": [
+    { "code": "R51.9", "display": "Headache, unspecified" }
+  ],
+  "synthetic": true,
+  "demo_set": "uhc-patients",
+  "demo_tag": "pa_required"
+}

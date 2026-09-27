@@ -59,8 +59,9 @@ create table if not exists policies (
   fhir_questionnaire text,
   fhir_insurance_plan text,
   ingestion_state text not null default '{}',
-  status text not null default 'ingesting' check (status in ('ingesting','paused','draft','live','retired','failed')),
+  status text not null default 'ingesting' check (status in ('ingesting','paused','draft','live','archived','failed')),
   went_live_by text, went_live_at text,
+  status_history text not null default '[]',
   created_at text default current_timestamp
 );
 create table if not exists policy_blocks (
@@ -71,7 +72,7 @@ create table if not exists policy_blocks (
   start_page integer not null,
   end_page integer not null,
   tier_used text not null,
-  status text not null default 'indexed' check (status in ('indexed','extracting','draft','live','retired')),
+  status text not null default 'indexed' check (status in ('indexed','extracting','draft','live','archived')),
   fhir_questionnaire text,
   went_live_by text, went_live_at text,
   unique (policy_id, block_key)
@@ -270,7 +271,7 @@ JSON_COLS = {
     "policies": [
         "identity_evidence", "format_hints", "sections", "context_report",
         "working_memory", "validation_report", "fhir_questionnaire",
-        "fhir_insurance_plan", "ingestion_state",
+        "fhir_insurance_plan", "ingestion_state", "status_history",
     ],
     "policy_items": ["service_codes", "data", "original_data", "grounding", "suggestion"],
     "policy_blocks": ["fhir_questionnaire"],
@@ -405,6 +406,23 @@ class Repository:
             )"""
         )
 
+        policy_cols = {row[1] for row in self._conn.execute("pragma table_info(policies)").fetchall()}
+        if "status_history" not in policy_cols:
+            self._conn.execute("alter table policies add column status_history text not null default '[]'")
+
+        policy_ddl = (
+            self._conn.execute("select sql from sqlite_master where type='table' and name='policies'").fetchone() or [""]
+        )[0] or ""
+        if "archived" not in policy_ddl or "retired" in policy_ddl:
+            self._rebuild_policies_status_archived()
+
+        block_ddl = (
+            self._conn.execute("select sql from sqlite_master where type='table' and name='policy_blocks'").fetchone()
+            or [""]
+        )[0] or ""
+        if "archived" not in block_ddl or "retired" in block_ddl:
+            self._rebuild_policy_blocks_status_archived()
+
     def _rebuild_pa_requests_for_draft(self) -> None:
         cols = {row[1] for row in self._conn.execute("pragma table_info(pa_requests)").fetchall()}
         optional = [
@@ -464,6 +482,98 @@ class Repository:
             """
         )
 
+    def _rebuild_policies_status_archived(self) -> None:
+        """Widen policies.status CHECK: retired -> archived; keep pipeline statuses."""
+        self._conn.execute("update policies set status = 'archived' where status = 'retired'")
+        row = self._conn.execute("select sql from sqlite_master where type='table' and name='policies'").fetchone()
+        ddl = (row[0] if row else "") or ""
+        if "archived" in ddl and "retired" not in ddl:
+            return
+        new_ddl = (
+            ddl.replace(
+                "('ingesting','paused','draft','live','retired','failed')",
+                "('ingesting','paused','draft','live','archived','failed')",
+            )
+            .replace("create table policies", "create table policies_v2", 1)
+            .replace("CREATE TABLE policies", "CREATE TABLE policies_v2", 1)
+        )
+        if new_ddl == ddl.replace("create table policies", "create table policies_v2", 1).replace(
+            "CREATE TABLE policies", "CREATE TABLE policies_v2", 1
+        ):
+            # Unknown CHECK shape — still force archived into a known DDL.
+            new_ddl = None
+        if new_ddl and "policies_v2" in new_ddl:
+            cols = [r[1] for r in self._conn.execute("pragma table_info(policies)").fetchall()]
+            col_list = ", ".join(cols)
+            self._conn.execute(new_ddl)
+            self._conn.execute(f"insert into policies_v2 ({col_list}) select {col_list} from policies")
+            self._conn.execute("drop table policies")
+            self._conn.execute("alter table policies_v2 rename to policies")
+            return
+        # Fallback full recreate matching current SCHEMA.
+        cols = [r[1] for r in self._conn.execute("pragma table_info(policies)").fetchall()]
+        if "status_history" not in cols:
+            self._conn.execute("alter table policies add column status_history text not null default '[]'")
+            cols.append("status_history")
+        col_list = ", ".join(cols)
+        self._conn.executescript(
+            f"""
+            create table policies_v2 (
+              id text primary key,
+              document_role text not null check (document_role in ('clinical_policy','benefit_summary','drug_criteria')),
+              role_hint text, role_confirmed_by text,
+              source_kind text not null check (source_kind in ('published','fictional_fallback')),
+              source_url text, downloaded_at text,
+              file_name text not null, storage_path text not null, sha256 text not null unique,
+              insurer text, plan_name text, plan_year text,
+              identity_evidence text,
+              identity_edited_by_human integer not null default 0,
+              format_hints text,
+              sections text,
+              possibly_truncated integer not null default 0,
+              context_report text,
+              working_memory text,
+              validation_report text,
+              fhir_questionnaire text,
+              fhir_insurance_plan text,
+              ingestion_state text not null default '{{}}',
+              status text not null default 'ingesting' check (status in ('ingesting','paused','draft','live','archived','failed')),
+              went_live_by text, went_live_at text,
+              status_history text not null default '[]',
+              created_at text default current_timestamp
+            );
+            insert into policies_v2 ({col_list}) select {col_list} from policies;
+            drop table policies;
+            alter table policies_v2 rename to policies;
+            """
+        )
+
+    def _rebuild_policy_blocks_status_archived(self) -> None:
+        self._conn.execute("update policy_blocks set status = 'archived' where status = 'retired'")
+        row = self._conn.execute("select sql from sqlite_master where type='table' and name='policy_blocks'").fetchone()
+        ddl = (row[0] if row else "") or ""
+        if "archived" in ddl and "retired" not in ddl:
+            return
+        new_ddl = (
+            ddl.replace(
+                "('indexed','extracting','draft','live','retired')",
+                "('indexed','extracting','draft','live','archived')",
+            )
+            .replace("create table policy_blocks", "create table policy_blocks_v2", 1)
+            .replace("CREATE TABLE policy_blocks", "CREATE TABLE policy_blocks_v2", 1)
+        )
+        if "policy_blocks_v2" not in new_ddl:
+            return
+        self._conn.execute(new_ddl)
+        self._conn.execute(
+            """insert into policy_blocks_v2
+               (id, policy_id, block_key, label, start_page, end_page, tier_used, status, fhir_questionnaire, went_live_by, went_live_at)
+               select id, policy_id, block_key, label, start_page, end_page, tier_used, status, fhir_questionnaire, went_live_by, went_live_at
+               from policy_blocks"""
+        )
+        self._conn.execute("drop table policy_blocks")
+        self._conn.execute("alter table policy_blocks_v2 rename to policy_blocks")
+
     def save_fhir_questionnaire(self, row: dict) -> dict:
         row = {**row, "id": row.get("id") or new_id(), "created_at": now()}
         self._insert(
@@ -485,6 +595,29 @@ class Repository:
 
     def get_fhir_qr(self, qrid: str) -> dict | None:
         return self._one("fhir_questionnaire_responses", "select * from fhir_questionnaire_responses where id = ?", (qrid,))
+
+    def list_fhir_questionnaires_for_plan(self, insurance_plan_id: str) -> list[dict]:
+        return self._all(
+            "fhir_questionnaires",
+            "select * from fhir_questionnaires where insurance_plan_id = ? order by created_at desc",
+            (insurance_plan_id,),
+        )
+
+    def count_questionnaire_responses(self, questionnaire_id: str) -> int:
+        with self._lock:
+            row = self._conn.execute(
+                "select count(*) as n from fhir_questionnaire_responses where questionnaire_id = ?",
+                (questionnaire_id,),
+            ).fetchone()
+        return int(row[0] if row else 0)
+
+    def delete_fhir_questionnaire(self, questionnaire_id: str) -> None:
+        # Clear PA pointers that still reference this questionnaire (no responses requested by caller).
+        self._write(
+            "update pa_requests set questionnaire_id = null where questionnaire_id = ?",
+            (questionnaire_id,),
+        )
+        self._write("delete from fhir_questionnaires where id = ?", (questionnaire_id,))
 
     def list_pas_for_patient(self, patient_id: str) -> list[dict]:
         return self._all(
@@ -816,9 +949,26 @@ class Repository:
             (plan_key,),
         )
         if running:
-            from app.errors import ApiError
+            # Stale lock after process restart: no in-process thread can own this row yet
+            # when create_run is invoked from a fresh start_ingestion. Reclaim and continue.
+            thread_alive = False
+            if policy_id:
+                try:
+                    from app.pipeline import pipeline_runner
 
-            raise ApiError("RUN_LIMIT", "A run is already in progress for this plan.", 429)
+                    thread_alive = pipeline_runner.ingestion_running(policy_id)
+                except Exception:
+                    thread_alive = False
+            if thread_alive:
+                from app.errors import ApiError
+
+                raise ApiError("RUN_LIMIT", "A run is already in progress for this plan.", 429)
+            self.finish_run(running["id"], "failed", "stale_run_reclaimed")
+            if policy_id:
+                pol = self.get_policy(policy_id)
+                if pol and pol.get("status") == "ingesting" and not thread_alive:
+                    # Leave ingesting so the new run can proceed; caller owns the work.
+                    pass
         row = {
             "id": new_id(),
             "policy_id": policy_id,
@@ -832,6 +982,21 @@ class Repository:
             tuple(row[c] for c in cols),
         )
         return self._one("ingestion_runs", "select * from ingestion_runs where id = ?", (row["id"],))  # type: ignore[return-value]
+
+    def reclaim_stale_ingestion(self) -> int:
+        """On API startup: no ingest threads exist yet, so any 'running' row is orphaned."""
+        rows = self._all(
+            "ingestion_runs",
+            "select * from ingestion_runs where status = 'running'",
+        )
+        for row in rows:
+            self.finish_run(row["id"], "failed", "process_restart")
+            pid = row.get("policy_id")
+            if pid:
+                pol = self.get_policy(pid)
+                if pol and pol.get("status") == "ingesting":
+                    self.update_policy(pid, {"status": "failed"}, actor="engine")
+        return len(rows)
 
     def finish_run(self, run_id: str, status: str, stop_reason: str | None = None) -> None:
         self._write(

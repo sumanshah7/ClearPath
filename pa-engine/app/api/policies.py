@@ -7,6 +7,7 @@ from fastapi.responses import FileResponse, PlainTextResponse
 
 from app.ingest.catalog_resolve import service_codes_for
 from app.pipeline import pipeline_runner
+from app.pipeline.pipeline_runner import upload_response
 from app.repository import get_repo, payer_label
 from app.review.audit_export import render
 from app.review.review import confirm_role, edit_identity
@@ -59,6 +60,7 @@ def get_policy(policy_id: str):
     body["format_hints"] = policy.get("format_hints")
     body["went_live_by"] = policy.get("went_live_by")
     body["went_live_at"] = policy.get("went_live_at")
+    body["status_history"] = policy.get("status_history") or []
     body["episodes"] = get_repo().episodes_for("policy", policy_id)
     body["blocks"] = get_repo().blocks_for(policy_id)
     body["ingestion_running"] = pipeline_runner.ingestion_running(policy_id)
@@ -116,8 +118,10 @@ def policy_file(policy_id: str):
 
 @router.post("/{policy_id}/confirm-role")
 def confirm(policy_id: str, body: dict):
-    confirm_role(policy_id, body["reviewer"], body["document_role"])
-    return pipeline_runner.run(policy_id)
+    """Confirm document role, then continue ingestion in the background (EOCs can be long)."""
+    updated = confirm_role(policy_id, body["reviewer"], body["document_role"])
+    pipeline_runner.start_ingestion(policy_id)
+    return upload_response(updated, cached=False)
 
 
 @router.patch("/{policy_id}/identity")
@@ -153,24 +157,84 @@ def finalize(policy_id: str):
     return pipeline_runner.finalize_draft(policy_id)
 
 
-@router.post("/{policy_id}/reconcile-pa")
-async def reconcile_pa(policy_id: str, listing: UploadFile | None = File(None)):
-    """Re-read EOC dagger markers (and optional PA listing PDF) onto coverage rows."""
-    listing_text = None
-    if listing is not None:
-        data = await listing.read()
-        from app.ingest.pdf_reader import read_pdf
-        from app.ingest.upload_validation import validate_bytes
-        from pathlib import Path
-        from app.config import settings
-        from app.repository import new_id
+@router.post("/{policy_id}/reject-fragments")
+def reject_fragments(policy_id: str):
+    """Drop wrapped eligibility / mid-sentence shards that are not chart services, then rebuild draft FHIR."""
+    from app.pipeline.episodes import EpisodeRecorder
+    from app.pipeline.pipeline_runner import _finish_draft, empty, upload_response
+    from app.repository import get_repo
 
+    repo = get_repo()
+    policy = repo.get_policy(policy_id)
+    if policy is None:
+        from app.errors import ApiError
+
+        raise ApiError("POLICY_NOT_FOUND", "No policy with that id.", 404)
+    run = repo.create_run(policy_id, "reject-fragments")
+    recorder = EpisodeRecorder("policy", policy_id, run["id"])
+    try:
+        before = sum(1 for i in repo.items_for(policy_id) if i.get("review_state") == "rejected")
+        _finish_draft(policy, repo.items_for(policy_id), policy.get("working_memory") or empty(), recorder)
+        after = sum(1 for i in repo.items_for(policy_id) if i.get("review_state") == "rejected")
+        repo.finish_run(run["id"], "complete")
+    except Exception as exc:
+        repo.finish_run(run["id"], "failed", str(exc)[:500])
+        raise
+    return {
+        "rejected": max(0, after - before),
+        "rejected_total": after,
+        "policy": upload_response(repo.get_policy(policy_id), cached=False),
+    }
+
+
+@router.post("/{policy_id}/reconcile-pa")
+async def reconcile_pa(
+    policy_id: str,
+    listing: UploadFile | None = File(None),
+    listing_alt: UploadFile | None = File(None),
+):
+    """Re-read EOC dagger markers (and optional PA listing PDF) onto coverage rows.
+
+    When two listing PDFs are uploaded, the parse with more complete service names wins
+    (row count, mean label length, fewer truncated open-parens) — not a payer-specific rule.
+    """
+    from app.ingest.pa_markers import choose_richer_listing, parse_pa_listing_text
+    from app.ingest.pdf_reader import read_pdf
+    from app.ingest.upload_validation import validate_bytes
+    from app.config import settings
+    from app.repository import new_id
+
+    texts_and_rows: list[tuple[str, list[dict]]] = []
+    for upload in (listing, listing_alt):
+        if upload is None:
+            continue
+        data = await upload.read()
         validate_bytes(data)
         settings.storage_dir.mkdir(parents=True, exist_ok=True)
         dest = settings.storage_dir / f"{new_id()}-pa-listing.pdf"
         dest.write_bytes(data)
         pages = read_pdf(dest)
-        listing_text = "\n".join(p.get("text") or "" for p in pages)
+        text = "\n".join(p.get("text") or "" for p in pages)
+        rows = parse_pa_listing_text(text)
+        if rows:
+            texts_and_rows.append((text, rows))
+
+    listing_text = None
+    if len(texts_and_rows) == 1:
+        listing_text = texts_and_rows[0][0]
+    elif len(texts_and_rows) >= 2:
+        winner = choose_richer_listing([rows for _text, rows in texts_and_rows])
+        for text, rows in texts_and_rows:
+            if rows is winner or (
+                len(rows) == len(winner)
+                and sum(len(r.get("service_label") or "") for r in rows)
+                == sum(len(r.get("service_label") or "") for r in winner)
+            ):
+                listing_text = text
+                break
+        if listing_text is None:
+            listing_text = texts_and_rows[0][0]
+
     return pipeline_runner.reconcile_pa_flags(policy_id, listing_text=listing_text)
 
 
@@ -216,7 +280,7 @@ def _summary(policy: dict) -> dict:
         "plan_name": policy.get("plan_name"),
         "plan_year": policy.get("plan_year"),
         "status": policy["status"],
-        "item_count": len(items),
+        "item_count": sum(1 for item in items if item["review_state"] != "rejected"),
         "pending": sum(1 for item in items if item["review_state"] in {"auto_approved", "pending_review"}),
         "fhir_valid": ((policy.get("validation_report") or {}).get("fhir") or {}).get("valid"),
         "ingestion_running": running,

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { BrandMark } from "@/components/pa/BrandMark";
 
 const LINKS = [
+  { href: "/doctor/login", label: "Doctor sign in" },
   { href: "/doctor/upload", label: "Upload report" },
   { href: "/doctor", label: "Order desk" },
   { href: "/admin/policies", label: "Policy library" },

@@ -1,0 +1,37 @@
+{
+  "payer": "UnitedHealthcare Community Plan of Ohio",
+  "plan_name": "Dual Complete OH-S3",
+  "plan_year": "2026",
+  "payer_code": "UHC-OH",
+  "count": 10,
+  "try_these": {
+    "no_pa": [
+      "patient-02-priya-sharma.json",
+      "patient-06-helen-park.json",
+      "patient-07-anthony-brooks.json"
+    ],
+    "pa_required": [
+      "patient-01-robert-nguyen.json",
+      "patient-03-marcus-bennett.json",
+      "patient-05-diego-ramirez.json",
+      "patient-08-nina-castillo.json",
+      "patient-09-kevin-owens.json",
+      "patient-10-grace-kim.json"
+    ],
+    "conditional": [
+      "patient-04-linda-okonkwo.json"
+    ]
+  },
+  "patients": [
+    "patient-01-robert-nguyen.json",
+    "patient-02-priya-sharma.json",
+    "patient-03-marcus-bennett.json",
+    "patient-04-linda-okonkwo.json",
+    "patient-05-diego-ramirez.json",
+    "patient-06-helen-park.json",
+    "patient-07-anthony-brooks.json",
+    "patient-08-nina-castillo.json",
+    "patient-09-kevin-owens.json",
+    "patient-10-grace-kim.json"
+  ]
+}

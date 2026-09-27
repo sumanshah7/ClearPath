@@ -98,6 +98,19 @@ export default function PolicyPage() {
   const [fhir, setFhir] = useState("");
   const [extractJson, setExtractJson] = useState("");
   const [fhirBusy, setFhirBusy] = useState(false);
+  const [questionnaires, setQuestionnaires] = useState<
+    {
+      id: string;
+      title?: string | null;
+      service_category?: string | null;
+      created_at?: string;
+      item_count: number;
+      response_count: number;
+      can_delete: boolean;
+      delete_blocked_reason?: string | null;
+    }[]
+  >([]);
+  const [qBusyId, setQBusyId] = useState<string | null>(null);
   const editRef = useRef<HTMLFormElement | null>(null);
   const fhirRef = useRef<HTMLPreElement | null>(null);
   const queueRef = useRef<HTMLElement | null>(null);
@@ -113,6 +126,12 @@ export default function PolicyPage() {
         setItems(queue.items);
       } else {
         setItems([]);
+      }
+      try {
+        const q = await api<{ questionnaires: typeof questionnaires }>(`/policies/${params.id}/questionnaires`);
+        setQuestionnaires(q.questionnaires || []);
+      } catch {
+        setQuestionnaires([]);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load this policy");
@@ -186,11 +205,63 @@ export default function PolicyPage() {
       await api(path, { method: "POST", body: JSON.stringify(body) });
       setEditing(null);
       if (path.endsWith("/go-live")) setJustWentLive(true);
+      if (path.endsWith("/take-offline")) setJustWentLive(false);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "That action failed");
     } finally {
       setBusyId(null);
+    }
+  }
+
+  async function goLiveWithConfirm() {
+    const ok = window.confirm(
+      "Activate this policy? It will be used for all new PA rule lookups.",
+    );
+    if (!ok) return;
+    await act(`/policies/${params.id}/go-live`, { reviewer });
+  }
+
+  async function takeOfflineWithConfirm() {
+    const ok = window.confirm(
+      "Take this policy offline? It will leave the live catalog for new lookups. Extracted rules and past PA decisions stay on file.",
+    );
+    if (!ok) return;
+    await act(`/policies/${params.id}/take-offline`, { reviewer });
+  }
+
+  async function deleteQuestionnaire(qid: string) {
+    const ok = window.confirm("Delete this questionnaire? You can regenerate a fresh one afterward.");
+    if (!ok) return;
+    setError("");
+    setQBusyId(qid);
+    try {
+      await api(`/policies/${params.id}/questionnaires/${qid}`, { method: "DELETE" });
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not delete questionnaire");
+    } finally {
+      setQBusyId(null);
+    }
+  }
+
+  async function regenerateQuestionnaire(qid: string) {
+    const ok = window.confirm(
+      "Regenerate this questionnaire from the currently live policy rules? The old questionnaire is deleted only if no responses were submitted.",
+    );
+    if (!ok) return;
+    setError("");
+    setQBusyId(qid);
+    try {
+      await api(`/policies/${params.id}/questionnaires/${qid}/regenerate`, {
+        method: "POST",
+        body: JSON.stringify({ reviewer }),
+      });
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not regenerate questionnaire");
+    } finally {
+      setQBusyId(null);
     }
   }
 
@@ -206,6 +277,10 @@ export default function PolicyPage() {
           setFilter("all");
           return;
         }
+        const ok = window.confirm(
+          "Activate this policy? It will be used for all new PA rule lookups.",
+        );
+        if (!ok) return;
         await api(`/policies/${params.id}/go-live`, {
           method: "POST",
           body: JSON.stringify({ reviewer }),
@@ -367,6 +442,14 @@ export default function PolicyPage() {
   const status = String(policy.status || "");
   const extracting = status === "ingesting" || Boolean(policy.ingestion_running);
   const isLive = status === "live";
+  const isArchived = status === "archived";
+  const canGoLive = !extracting && !undecided && (status === "draft" || status === "archived");
+  const history = (Array.isArray(policy.status_history) ? policy.status_history : []) as {
+    status?: string;
+    changed_by?: string;
+    timestamp?: string;
+  }[];
+
   const steps = ((policy.ingestion_steps as IngestionStep[] | undefined) || []).map((step) => ({
     ...step,
     status: step.status as IngestionStep["status"],
@@ -424,6 +507,73 @@ export default function PolicyPage() {
       {cacheNote && <p className="badge green" style={{ marginTop: 8 }}>{cacheNote}</p>}
       {error && <p className="badge amber">{error}</p>}
 
+      {status === "paused" && (
+        <section className="card" style={{ marginTop: 12, borderColor: "#f59e0b" }}>
+          <p className="title">Role confirmation needed</p>
+          <p className="muted">
+            This file was uploaded as {documentRoleLabel(role)}. Precheck thinks it is{" "}
+            <strong>{documentRoleLabel(String(policy.role_hint || "benefit_summary"))}</strong>
+            {Number(policy.page_count || 0) ? ` · ${policy.page_count} pages` : ""}. Confirm the role to extract
+            coverage / rules — that is why the review queue is empty.
+          </p>
+          <div className="row" style={{ marginTop: 10, flexWrap: "wrap", gap: 8 }}>
+            <button
+              type="button"
+              className="btn"
+              disabled={busyId === "confirm-role"}
+              onClick={() =>
+                act(
+                  `/policies/${params.id}/confirm-role`,
+                  {
+                    reviewer,
+                    document_role: String(policy.role_hint || "benefit_summary"),
+                  },
+                  "confirm-role",
+                )
+              }
+            >
+              {busyId === "confirm-role"
+                ? "Starting extraction..."
+                : `Confirm as ${documentRoleLabel(String(policy.role_hint || "benefit_summary"))}`}
+            </button>
+            <button
+              type="button"
+              className="btn secondary"
+              disabled={busyId === "confirm-role"}
+              onClick={() =>
+                act(
+                  `/policies/${params.id}/confirm-role`,
+                  {
+                    reviewer,
+                    document_role: "benefit_summary",
+                  },
+                  "confirm-role",
+                )
+              }
+            >
+              Confirm as Evidence of Coverage
+            </button>
+            <button
+              type="button"
+              className="btn secondary"
+              disabled={busyId === "confirm-role"}
+              onClick={() =>
+                act(
+                  `/policies/${params.id}/confirm-role`,
+                  {
+                    reviewer,
+                    document_role: "clinical_policy",
+                  },
+                  "confirm-role",
+                )
+              }
+            >
+              Keep as clinical policy
+            </button>
+          </div>
+        </section>
+      )}
+
       {extracting && <IngestionSteps steps={steps.length ? steps : PENDING_STEPS} live />}
 
       {(isLive || justWentLive) && (
@@ -432,10 +582,14 @@ export default function PolicyPage() {
           <p className="muted">
             Go live publishes accepted and edited rows into the order catalog. Rejected rows stay out.
             Clinicians open an order and submit a packet; the insurer queue reviews questionnaires, may ask for more evidence, then approve.
+            You can take it offline later without losing extracted rules.
           </p>
           <div className="row" style={{ marginTop: 10 }}>
             <Link className="btn" href="/insurer">Open insurer review</Link>
             <Link className="btn secondary" href="/doctor">Open clinician order</Link>
+            <button type="button" className="btn secondary" onClick={takeOfflineWithConfirm}>
+              Take offline
+            </button>
             <button
               type="button"
               className="btn secondary"
@@ -447,6 +601,15 @@ export default function PolicyPage() {
               Browse all decisions
             </button>
           </div>
+        </section>
+      )}
+
+      {isArchived && (
+        <section className="card" style={{ marginTop: 12, borderColor: "#888" }}>
+          <p className="title">This document is offline (archived)</p>
+          <p className="muted">
+            Extracted rules stay on file. It is not used for new PA lookups until you Go live again.
+          </p>
         </section>
       )}
 
@@ -470,20 +633,100 @@ export default function PolicyPage() {
           <button className="btn secondary" disabled={extracting || fhirBusy} onClick={showFhir}>{fhirBusy ? "Building FHIR…" : "FHIR"}</button>
           <button className="btn secondary" disabled={extracting || items.length === 0} onClick={showExtractJson}>Extract JSON</button>
           <label className="field">Reviewer<input value={reviewer} onChange={(e) => setReviewer(e.target.value)} /></label>
-          <button
-            className="btn"
-            disabled={extracting || undecided || isLive}
-            onClick={() => act(`/policies/${params.id}/go-live`, { reviewer })}
-            title={undecided ? "Accept, edit, or reject every row first" : "Publish accepted rows for prior auth"}
-          >
-            {isLive ? "Live" : "Go live"}
-          </button>
+          {isLive ? (
+            <button className="btn secondary" disabled={extracting} onClick={takeOfflineWithConfirm}>
+              Take offline
+            </button>
+          ) : (
+            <button
+              className="btn"
+              disabled={!canGoLive}
+              onClick={goLiveWithConfirm}
+              title={undecided ? "Accept, edit, or reject every row first" : "Publish accepted rows for prior auth"}
+            >
+              {isArchived ? "Go live again" : "Go live"}
+            </button>
+          )}
         </div>
         {undecided && !extracting && !isLive && (
           <p className="muted">Go live stays off until every item is accepted, edited, or rejected. Use Needs review first, then check All.</p>
         )}
-        {isLive && <p className="muted">Live. You can still change a row in All (Accept / Reject / Edit); that updates the catalog for new orders.</p>}
+        {isLive && <p className="muted">Live. You can still change a row in All (Accept / Reject / Edit); that updates the catalog for new orders. Take offline anytime without deleting rules.</p>}
+        {isArchived && !undecided && (
+          <p className="muted">Archived. Go live again to put this plan back in the order catalog — no re-extract needed.</p>
+        )}
+        {history.length > 0 && (
+          <div style={{ marginTop: 10 }}>
+            <p className="muted">Status history</p>
+            <ul className="muted" style={{ margin: "4px 0 0", paddingLeft: 18 }}>
+              {history.map((entry, idx) => (
+                <li key={`${entry.timestamp || idx}-${entry.status}`}>
+                  {entry.status} · {entry.changed_by || "—"} · {entry.timestamp || "—"}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </section>
+
+      {!extracting && (isLive || isArchived || questionnaires.length > 0) && (
+        <section className="card" style={{ marginTop: 12 }}>
+          <p className="title">Generated questionnaires</p>
+          <p className="muted">
+            Delete is only available when no QuestionnaireResponse has been submitted. Regenerate builds a fresh questionnaire from the live policy rules (demo-safe).
+          </p>
+          {questionnaires.length === 0 && (
+            <p className="muted" style={{ marginTop: 8 }}>
+              No stored questionnaires yet. They appear after a clinician order snapshots criteria, or after regenerate on a clinical policy.
+            </p>
+          )}
+          {questionnaires.map((q) => (
+            <div key={q.id} className="row" style={{ marginTop: 10, justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+              <div>
+                <p className="title" style={{ fontSize: 14 }}>{q.title || "Questionnaire"}</p>
+                <p className="muted">
+                  {q.item_count} groups · {q.response_count} response{q.response_count === 1 ? "" : "s"}
+                  {q.service_category ? ` · ${q.service_category}` : ""}
+                  {q.created_at ? ` · ${q.created_at}` : ""}
+                </p>
+                {!q.can_delete && (
+                  <p className="muted">{q.delete_blocked_reason || "responses already submitted against this questionnaire"}</p>
+                )}
+              </div>
+              <div className="row">
+                <button
+                  type="button"
+                  className="btn secondary"
+                  disabled={!q.can_delete || qBusyId === q.id || !isLive}
+                  title={
+                    !q.can_delete
+                      ? q.delete_blocked_reason || "responses already submitted against this questionnaire"
+                      : !isLive
+                        ? "Policy must be live to regenerate"
+                        : "Delete and rebuild from live rules"
+                  }
+                  onClick={() => regenerateQuestionnaire(q.id)}
+                >
+                  {qBusyId === q.id ? "Working…" : "Regenerate"}
+                </button>
+                <button
+                  type="button"
+                  className="btn secondary"
+                  disabled={!q.can_delete || qBusyId === q.id}
+                  title={
+                    q.can_delete
+                      ? "Delete questionnaire"
+                      : q.delete_blocked_reason || "responses already submitted against this questionnaire"
+                  }
+                  onClick={() => deleteQuestionnaire(q.id)}
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
       {(fhir || extractJson) && (
         <pre ref={fhirRef} className="card" style={{ marginTop: 12, overflow: "auto", fontSize: 12, maxHeight: 360 }}>
           {fhir || extractJson}
@@ -571,7 +814,19 @@ export default function PolicyPage() {
               {reconcileNote && <p className="badge green" style={{ marginTop: 10 }}>{reconcileNote}</p>}
             </section>
           )}
-          {items.length === 0 && <p className="muted">No items yet. Drug blocks are extracted one at a time.</p>}
+          {items.length === 0 && (
+            <p className="muted">
+              {status === "paused"
+                ? "No items yet — confirm the document role above to start extraction."
+                : extracting
+                  ? "No items yet — extraction is still running."
+                  : role === "benefit_summary"
+                    ? "No coverage rows yet. Re-run extraction or check the source PDF."
+                    : role === "drug_criteria"
+                      ? "No items yet. Drug blocks are extracted one at a time."
+                      : "No rules yet. Re-run extraction or check the source PDF."}
+            </p>
+          )}
           {items.length > 0 && visible.length === 0 && filter === "needs" && (
             <div className="card" style={{ marginTop: 8 }}>
               <p className="muted">Every row already has a human decision. Stay here, or open All to see Accept / Reject / Edit status on each row.</p>
@@ -614,7 +869,7 @@ export default function PolicyPage() {
               <article key={item.id} className={confidence.sure && !decided ? "card" : decided ? "card" : "card needs-look"} style={{ marginTop: 8 }}>
                 <div className="row" style={{ justifyContent: "space-between" }}>
                   <div className="row">
-                    <ConfidenceBadge sure={confidence.sure} />
+                    <ConfidenceBadge sure={confidence.sure} importOnly={confidence.importOnly} />
                     <StatusBadge status={item.review_state} />
                     <span className={`badge ${item.review_state === "rejected" ? "amber" : decided ? "green" : "blue"}`}>
                       {decisionLabel(item.review_state)}

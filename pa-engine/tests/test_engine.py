@@ -293,7 +293,8 @@ def test_demo_mode_cache_miss_does_not_call_a_provider(monkeypatch):
 def test_guardrails_have_no_denial_status():
     assert "denied" not in SCHEMA.lower()
     assert ALLOWED == {"info_requested", "approved"}
-    assert "denied" not in Path("app/check/insurer.py").read_text().lower()
+    insurer = Path(__file__).resolve().parents[1] / "app/check/insurer.py"
+    assert "denied" not in insurer.read_text().lower()
 
 
 def test_fhir_questionnaire_validates():

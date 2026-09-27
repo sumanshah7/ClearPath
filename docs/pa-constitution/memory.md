@@ -95,3 +95,27 @@ Why: PA flags lived only as a thin boolean filter; listing reconcile and pa_stat
 Documents tested: Northwind Mutual summary-of-benefits (a763a641). eval not run.
 Before / After: eval not run.
 Decision: Keep one policy detail page (constitution A2); Prior auth is a first-class review filter for benefit_summary, not a separate route.
+
+## 2026-09-27, Auto
+Change: Reject non-service coverage fragments. `is_plausible_service_label` filters recover/merge/persist; `_reject_fragment_coverage` auto-rejects wrapped eligibility bullets and mid-sentence shards (and restores false positives); POST `/policies/{id}/reject-fragments`; Gate-1 queue hides rejected.
+Why: UHC EOC p.60 promoted wrap lines ("Medicine (ACAOM); and,", "Rico) of the United States, or", "District of Columbia", "Auxiliary personnel furnishing") into separate ACCURATE auto-approved coverage rows.
+Documents tested: UHC Dual Complete OH-S3 EOC policy 46fa523c (benefit_summary). eval not run.
+Before (scorecard): 585 active coverage rows; p.60 had 10 fragment/eligibility shards.
+After (scorecard): 266 active / 319 rejected; p.60 fragments rejected; MDPP/Acupuncture/Emergency care kept; `test_coverage_fragments` + pa_markers/edge 23 passed. eval not run.
+Decision: Keep label plausibility gate on benefit recover/persist; do not treat page-quote accuracy as enough for a coverage service name.
+
+## 2026-09-27, Auto
+Change: Hardened coverage-label gate + PA marker windows after agent audit. Hard-reject We cover / Covered services include / Note: / disease-only bullets; Service: rows now validate the name cell; dangling ends expanded; restore only ACCURATE+grounded; item_counts.total excludes rejected; validation_report uses active rows; annotate clears PA on non-plausible labels; look-ahead stops at next bullet (no borrowed ††); uncovered ignores rejected rows; normalize uses service_label_from_line.
+Why: Agents found ~34 auto-approved junk still passing via has_hint short-circuit, item_counts total=585 with only 266 active, PA FPs on legend/surgical-supplies, and restore reviving HALLUCINATED fragments.
+Documents tested: UHC Dual Complete OH-S3 EOC policy 46fa523c. eval not run.
+Before (scorecard): 266 active / 319 rejected; ~30 PA-required incl. junk; item_counts.total 585.
+After (scorecard): 190 active / 395 rejected; 16 PA-required (plausible labels); item_counts.total 190; soft narrative headers 0; focused tests 23–38 passed. eval not run.
+Decision: Keep tightened plausibility + marker look-ahead. Listing reconcile still needed for SNF/inpatient/DME header markers (EOC puts †† on Medicare-covered sublines).
+
+## 2026-09-27, Auto
+Change: Listing-as-PA-authority reconcile. Scored coverage match (listing_match_score / best_coverage_for_listing); chart-shaped grounding; residual dagger clear; dedupe by listing_index; choose_richer_listing by parse completeness; fold open-paren / hyphen continuations; stop skipping labels that merely start with "Screening".
+Why: Reference UHC OH-S3 PA listings (plain + FHIR) parse to 90 = 41/8/41; EOC dagger alone left ~16 required on junk. Agents: first-hit fuzzy hijacks + residuals blocked the scorecard.
+Documents tested: policy 46fa523c + UHC_OH-S3_2026_prior_authorization(_fhir)_4.pdf. eval not run.
+Before (scorecard): ~16 PA-required on noisy EOC rows; listing unused.
+After (scorecard): listing_indexed 90 = required 41 / conditional 8 / not_required 41. Tests test_pa_markers 26 passed. eval not run.
+Decision: When a listing PDF is supplied, it is the PA authority; EOC daggers remain the fallback when no listing is uploaded.

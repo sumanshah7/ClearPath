@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api";
-
-type Provider = { id: string; full_name: string; specialty?: string };
+import { useDoctorAuth } from "@/components/pa/DoctorAuthProvider";
+import { DoctorProfileCard } from "@/components/pa/DoctorProfileCard";
 
 type UploadResult = {
   upload_id: string;
@@ -21,32 +21,24 @@ type UploadResult = {
 
 export default function DoctorUploadPage() {
   const router = useRouter();
-  const [providers, setProviders] = useState<Provider[]>([]);
-  const [providerId, setProviderId] = useState("");
+  const { doctor, logout } = useDoctorAuth();
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<UploadResult | null>(null);
 
-  useEffect(() => {
-    api<{ providers: Provider[] }>("/providers")
-      .then((data) => {
-        setProviders(data.providers || []);
-        if (data.providers?.[0]) setProviderId(data.providers[0].id);
-      })
-      .catch((err) => setError(err instanceof Error ? err.message : "Could not load clinicians"));
-  }, []);
+  if (!doctor) return null;
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
-    if (!file) return;
+    if (!file || !doctor) return;
     setBusy(true);
     setError("");
     setResult(null);
     try {
       const body = new FormData();
       body.set("file", file);
-      if (providerId) body.set("provider_id", providerId);
+      body.set("provider_id", doctor.provider_id);
       const data = await api<UploadResult>("/uploads/patient-report", { method: "POST", body });
       setResult(data);
       const params = new URLSearchParams();
@@ -64,24 +56,19 @@ export default function DoctorUploadPage() {
         <p className="kicker">Order desk</p>
         <h1 className="title">Upload patient report</h1>
         <p className="lead">
-          Drop a clinical PDF or report. ClearPath extracts what it can, then opens the Order Desk
-          so you can review, pick the plan, and run coverage.
+          You are signed in. Review your profile, then drop a clinical PDF or report. ClearPath extracts what it can
+          and opens the Order Desk.
         </p>
       </header>
+
+      <DoctorProfileCard doctor={doctor} onLogout={logout} />
 
       {error && <p className="badge amber">{error}</p>}
 
       <form className="card form-card" onSubmit={onSubmit} style={{ maxWidth: "36rem" }}>
         <label className="field">
           Ordering clinician
-          <select value={providerId} onChange={(e) => setProviderId(e.target.value)}>
-            {providers.map((provider) => (
-              <option key={provider.id} value={provider.id}>
-                {provider.full_name}
-                {provider.specialty ? ` | ${provider.specialty}` : ""}
-              </option>
-            ))}
-          </select>
+          <input value={`${doctor.full_name}${doctor.specialty ? ` | ${doctor.specialty}` : ""}`} disabled readOnly />
         </label>
         <label className="field">
           Patient report

@@ -1,0 +1,41 @@
+{
+  "id": "uhc-pat-04-linda-okonkwo",
+  "full_name": "Linda Okonkwo",
+  "first_name": "Linda",
+  "last_name": "Okonkwo",
+  "dob": "1982-06-27",
+  "sex": "female",
+  "member_id": "UHC-66219",
+  "mrn": "MRN-10662",
+  "phone": "555-4104",
+  "email": "linda.okonkwo@uhc.patient.demo",
+  "address": {
+    "line1": "880 Market Street Apt 4B",
+    "city": "Toledo",
+    "state": "OH",
+    "postal_code": "43604"
+  },
+  "insurance": {
+    "payer_id": "payer-uhc-demo",
+    "insurer": "UnitedHealthcare Community Plan of Ohio",
+    "plan_name": "Dual Complete OH-S3",
+    "plan_year": "2026",
+    "member_id": "UHC-66219",
+    "group_number": "UHC-OH-S3",
+    "effective_date": "2026-01-01"
+  },
+  "suggested_order": {
+    "order_text": "Physical therapy evaluation",
+    "service_code": "97161",
+    "service_category": "Physical therapy evaluation",
+    "pa_required": null,
+    "pa_status": "conditional",
+    "icd10_codes": ["M54.16"]
+  },
+  "diagnoses": [
+    { "code": "M54.16", "display": "Radiculopathy, lumbar region" }
+  ],
+  "synthetic": true,
+  "demo_set": "uhc-patients",
+  "demo_tag": "conditional"
+}

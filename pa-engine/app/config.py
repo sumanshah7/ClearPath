@@ -76,7 +76,8 @@ class Settings:
 
     @property
     def timeout_extract(self) -> float:
-        return float(os.environ.get("TIMEOUT_EXTRACT_SECONDS", "120"))
+        # Dense EOC chart pages often need >120s; 240s + one retry in llm.complete.
+        return float(os.environ.get("TIMEOUT_EXTRACT_SECONDS", "240"))
 
     @property
     def timeout_judge(self) -> float:

@@ -1,0 +1,41 @@
+{
+  "id": "uhc-pat-01-robert-nguyen",
+  "full_name": "Robert Nguyen",
+  "first_name": "Robert",
+  "last_name": "Nguyen",
+  "dob": "1959-01-18",
+  "sex": "male",
+  "member_id": "UHC-77421",
+  "mrn": "MRN-10774",
+  "phone": "555-4101",
+  "email": "robert.nguyen@uhc.patient.demo",
+  "address": {
+    "line1": "2300 Summit Blvd",
+    "city": "Akron",
+    "state": "OH",
+    "postal_code": "44308"
+  },
+  "insurance": {
+    "payer_id": "payer-uhc-demo",
+    "insurer": "UnitedHealthcare Community Plan of Ohio",
+    "plan_name": "Dual Complete OH-S3",
+    "plan_year": "2026",
+    "member_id": "UHC-77421",
+    "group_number": "UHC-OH-S3",
+    "effective_date": "2026-01-01"
+  },
+  "suggested_order": {
+    "order_text": "MRI lumbar spine without contrast",
+    "service_code": "72148",
+    "service_category": "Outpatient diagnostic tests - imaging",
+    "pa_required": true,
+    "pa_status": "required",
+    "icd10_codes": ["M51.16"]
+  },
+  "diagnoses": [
+    { "code": "M51.16", "display": "Intervertebral disc disorders with radiculopathy, lumbar region" }
+  ],
+  "synthetic": true,
+  "demo_set": "uhc-patients",
+  "demo_tag": "pa_required"
+}

@@ -44,7 +44,9 @@ def risk_rank(item: dict) -> tuple[int, int]:
 
 def queue(policy_id: str) -> list[dict]:
     items = get_repo().items_for(policy_id)
-    return sorted(items, key=risk_rank)
+    # Rejected rows stay in the DB for audit but are not Gate-1 work.
+    open_items = [item for item in items if item.get("review_state") != "rejected"]
+    return sorted(open_items, key=risk_rank)
 
 
 def accept(policy_id: str, item_id: str, reviewer: str, note: str | None = None) -> dict:
@@ -160,6 +162,12 @@ def go_live(policy_id: str, reviewer: str, *, block_id: str | None = None) -> di
     policy = repo.get_policy(policy_id)
     if policy is None:
         raise ApiError("POLICY_NOT_FOUND", "No policy with that id.", 404)
+    if policy["status"] not in {"draft", "archived", "live"}:
+        raise ApiError(
+            "INVALID_TRANSITION",
+            f"Go live needs a draft or archived policy (currently {policy['status']}).",
+            409,
+        )
     items = repo.items_for(policy_id, block_id)
     if any(item["review_state"] not in DECIDED for item in items):
         raise ApiError("ITEMS_UNDECIDED", "Every item needs a human decision before go-live.", 409)
@@ -177,10 +185,12 @@ def go_live(policy_id: str, reviewer: str, *, block_id: str | None = None) -> di
             block_id,
             {"status": "live", "went_live_by": reviewer, "went_live_at": now(), "fhir_questionnaire": resource},
         )
+    history = _append_status_history(policy, "live", reviewer)
     changes = {
         "status": "live",
         "went_live_by": reviewer,
         "went_live_at": now(),
+        "status_history": history,
         "validation_report": {
             **(policy.get("validation_report") or {}),
             "fhir": {"valid": True, "errors": []},
@@ -194,6 +204,45 @@ def go_live(policy_id: str, reviewer: str, *, block_id: str | None = None) -> di
     _log(reviewer, "policy_reviewer", "policies", policy_id, "go_live", {"status": policy["status"]}, {"status": "live"}, None, policy_id)
     _refresh_plan_memory(updated)
     return updated
+
+
+def take_offline(policy_id: str, reviewer: str, *, block_id: str | None = None) -> dict:
+    """live -> archived. Keeps extracted rules, FHIR blobs, and past PA decisions."""
+    repo = get_repo()
+    policy = repo.get_policy(policy_id)
+    if policy is None:
+        raise ApiError("POLICY_NOT_FOUND", "No policy with that id.", 404)
+    if policy["status"] != "live":
+        raise ApiError("INVALID_TRANSITION", "Only a live policy can be taken offline.", 409)
+    if block_id:
+        block = repo.get_block(block_id)
+        if block is None or block["policy_id"] != policy_id:
+            raise ApiError("POLICY_NOT_FOUND", "No block with that id.", 404)
+        repo.update_block(block_id, {"status": "archived"})
+    history = _append_status_history(policy, "archived", reviewer)
+    updated = repo.update_policy(
+        policy_id,
+        {"status": "archived", "status_history": history},
+        actor=reviewer,
+    )
+    _log(
+        reviewer,
+        "policy_reviewer",
+        "policies",
+        policy_id,
+        "take_offline",
+        {"status": "live"},
+        {"status": "archived"},
+        None,
+        policy_id,
+    )
+    return updated
+
+
+def _append_status_history(policy: dict, status: str, changed_by: str) -> list[dict]:
+    history = list(policy.get("status_history") or [])
+    history.append({"status": status, "changed_by": changed_by, "timestamp": now()})
+    return history
 
 
 def confirm_role(policy_id: str, reviewer: str, document_role: str) -> dict:

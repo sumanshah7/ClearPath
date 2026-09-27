@@ -1,0 +1,42 @@
+[
+  {
+    "id": "payer-northwind",
+    "name": "Northwind Mutual",
+    "payer_code": "NWM001",
+    "phone": "555-3000",
+    "portal_url": "https://payer.northwind.demo",
+    "synthetic": true
+  },
+  {
+    "id": "payer-uhc-demo",
+    "name": "UnitedHealthcare Community Plan of Ohio (Demo)",
+    "payer_code": "UHC-OH",
+    "phone": "555-3100",
+    "portal_url": "https://payer.uhc.demo",
+    "synthetic": true
+  },
+  {
+    "id": "payer-acme",
+    "name": "Acme Health Partners",
+    "payer_code": "ACME01",
+    "phone": "555-3200",
+    "portal_url": "https://payer.acme.demo",
+    "synthetic": true
+  },
+  {
+    "id": "payer-generic-mutual",
+    "name": "Generic Mutual",
+    "payer_code": "GENMUT",
+    "phone": "555-3300",
+    "portal_url": "https://payer.generic.demo",
+    "synthetic": true
+  },
+  {
+    "id": "payer-lakeshore",
+    "name": "Lakeshore Advantage",
+    "payer_code": "LSHADV",
+    "phone": "555-3400",
+    "portal_url": "https://payer.lakeshore.demo",
+    "synthetic": true
+  }
+]

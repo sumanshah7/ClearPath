@@ -1,0 +1,41 @@
+{
+  "id": "uhc-pat-08-nina-castillo",
+  "full_name": "Nina Castillo",
+  "first_name": "Nina",
+  "last_name": "Castillo",
+  "dob": "1988-11-30",
+  "sex": "female",
+  "member_id": "UHC-44701",
+  "mrn": "MRN-10447",
+  "phone": "555-4108",
+  "email": "nina.castillo@uhc.patient.demo",
+  "address": {
+    "line1": "55 Prospect Ave",
+    "city": "Cincinnati",
+    "state": "OH",
+    "postal_code": "45202"
+  },
+  "insurance": {
+    "payer_id": "payer-uhc-demo",
+    "insurer": "UnitedHealthcare Community Plan of Ohio",
+    "plan_name": "Dual Complete OH-S3",
+    "plan_year": "2026",
+    "member_id": "UHC-44701",
+    "group_number": "UHC-OH-S3",
+    "effective_date": "2026-01-01"
+  },
+  "suggested_order": {
+    "order_text": "MRI brain without contrast",
+    "service_code": "70551",
+    "service_category": "MRI brain without contrast",
+    "pa_required": true,
+    "pa_status": "required",
+    "icd10_codes": ["G43.909"]
+  },
+  "diagnoses": [
+    { "code": "G43.909", "display": "Migraine, unspecified, not intractable, without status migrainosus" }
+  ],
+  "synthetic": true,
+  "demo_set": "uhc-patients",
+  "demo_tag": "pa_required"
+}

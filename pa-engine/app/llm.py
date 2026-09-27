@@ -114,8 +114,9 @@ def complete(
             provider = "offline"
             model = "offline-v1"
         else:
-            raw_text = _http_complete(provider_kind, system, user_text, timeout)
-            data = _parse_json(raw_text)
+            raw_text, data = _http_complete_parsed(
+                provider_kind, system, user_text, timeout, prompt_name=prompt_name
+            )
         if schema is not None:
             try:
                 data = schema.model_validate(data).model_dump()
@@ -180,6 +181,43 @@ def complete(
     return {"data": data, "cache_hit": False, "step_no": step}
 
 
+def _http_complete_parsed(
+    provider_kind: str,
+    system: str,
+    user_text: str,
+    timeout: float,
+    *,
+    prompt_name: str,
+) -> tuple[str, dict]:
+    """HTTP complete with constitution O7: one retry on timeout, one retry on bad JSON."""
+    last_timeout: Exception | None = None
+    for attempt in range(2):
+        try:
+            raw_text = _http_complete(provider_kind, system, user_text, timeout)
+            break
+        except httpx.TimeoutException as exc:
+            last_timeout = exc
+            if attempt == 0:
+                continue
+            raise
+    else:
+        assert last_timeout is not None
+        raise last_timeout
+
+    try:
+        return raw_text, _parse_json(raw_text)
+    except (json.JSONDecodeError, ValueError) as first_err:
+        # One repair call — models occasionally emit trailing commas / truncated braces.
+        repair_user = (
+            user_text
+            + "\n\nYour previous reply was not valid JSON ("
+            + str(first_err)
+            + "). Return one JSON object only. No markdown, no trailing commas."
+        )
+        raw_text = _http_complete(provider_kind, system, repair_user, timeout)
+        return raw_text, _parse_json(raw_text)
+
+
 def _use_offline(provider_kind: str) -> bool:
     if provider_kind == "judge":
         if settings.judge_provider == "grok":
@@ -206,11 +244,21 @@ def _timeout(stage: str) -> float:
 
 def _parse_json(text: str) -> dict:
     cleaned = _THINK.sub("", text).strip()
+    # Drop markdown fences if the model ignored response_format.
+    if cleaned.startswith("```"):
+        cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(r"\s*```$", "", cleaned)
     start = cleaned.find("{")
     end = cleaned.rfind("}")
     if start < 0 or end < start:
         raise ValueError("Model did not return JSON.")
-    return json.loads(cleaned[start : end + 1])
+    blob = cleaned[start : end + 1]
+    try:
+        return json.loads(blob)
+    except json.JSONDecodeError:
+        # Common model slips: trailing commas before } or ].
+        repaired = re.sub(r",\s*([}\]])", r"\1", blob)
+        return json.loads(repaired)
 
 
 def _http_complete(provider_kind: str, system: str, user_text: str, timeout: float) -> str:
@@ -245,15 +293,77 @@ def _openai_compatible(url: str, key: str, model: str, system: str, user_text: s
             {"role": "user", "content": user_text},
         ],
     }
-    with httpx.Client(timeout=timeout) as client:
-        response = client.post(
-            url,
-            headers={"Authorization": f"Bearer {key}"},
-            json=payload,
+    # Prefer direct HTTP. Cursor's local HTTPS_PROXY often returns CONNECT 403 to api.openai.com.
+    # Only fall back to curl on transport/proxy failures — not on read timeouts (those would
+    # double the wait and still fail).
+    try:
+        with httpx.Client(timeout=timeout, trust_env=False) as client:
+            response = client.post(
+                url,
+                headers={"Authorization": f"Bearer {key}"},
+                json=payload,
+            )
+            response.raise_for_status()
+            body = response.json()
+        return body["choices"][0]["message"]["content"]
+    except (httpx.TimeoutException, httpx.HTTPStatusError):
+        raise
+    except Exception as direct_err:
+        try:
+            with httpx.Client(timeout=timeout, trust_env=True) as client:
+                response = client.post(
+                    url,
+                    headers={"Authorization": f"Bearer {key}"},
+                    json=payload,
+                )
+                response.raise_for_status()
+                body = response.json()
+            return body["choices"][0]["message"]["content"]
+        except (httpx.TimeoutException, httpx.HTTPStatusError):
+            raise
+        except Exception:
+            return _curl_openai(url, key, payload, timeout, direct_err)
+
+
+def _curl_openai(url: str, key: str, payload: dict, timeout: float, prior: Exception) -> str:
+    import subprocess
+    import tempfile
+
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as handle:
+        json.dump(payload, handle)
+        path = handle.name
+    try:
+        completed = subprocess.run(
+            [
+                "curl",
+                "-sS",
+                "--max-time",
+                str(max(5, int(timeout))),
+                url,
+                "-H",
+                f"Authorization: Bearer {key}",
+                "-H",
+                "Content-Type: application/json",
+                "--data-binary",
+                f"@{path}",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=max(10, int(timeout) + 5),
+            env={k: v for k, v in __import__("os").environ.items() if k.lower() not in {"http_proxy", "https_proxy", "all_proxy"}},
         )
-        response.raise_for_status()
-        body = response.json()
-    return body["choices"][0]["message"]["content"]
+        if completed.returncode != 0:
+            raise ApiError(
+                "MODEL_ERROR",
+                f"OpenAI call failed ({prior}). curl: {completed.stderr.strip() or completed.returncode}",
+                502,
+            )
+        body = json.loads(completed.stdout)
+        if body.get("error"):
+            raise ApiError("MODEL_ERROR", str(body["error"]), 502)
+        return body["choices"][0]["message"]["content"]
+    finally:
+        Path(path).unlink(missing_ok=True)
 
 
 def _gemini(system: str, user_text: str, timeout: float) -> str:
@@ -265,7 +375,7 @@ def _gemini(system: str, user_text: str, timeout: float) -> str:
         "contents": [{"parts": [{"text": system + "\n\n" + user_text}]}],
         "generationConfig": {"temperature": 0, "responseMimeType": "application/json"},
     }
-    with httpx.Client(timeout=timeout) as client:
+    with httpx.Client(timeout=timeout, trust_env=False) as client:
         response = client.post(url, json=payload)
         response.raise_for_status()
         body = response.json()

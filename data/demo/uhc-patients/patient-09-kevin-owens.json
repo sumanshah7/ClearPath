@@ -1,0 +1,41 @@
+{
+  "id": "uhc-pat-09-kevin-owens",
+  "full_name": "Kevin Owens",
+  "first_name": "Kevin",
+  "last_name": "Owens",
+  "dob": "1962-03-07",
+  "sex": "male",
+  "member_id": "UHC-55933",
+  "mrn": "MRN-10559",
+  "phone": "555-4109",
+  "email": "kevin.owens@uhc.patient.demo",
+  "address": {
+    "line1": "900 Riverbend Blvd",
+    "city": "Youngstown",
+    "state": "OH",
+    "postal_code": "44503"
+  },
+  "insurance": {
+    "payer_id": "payer-uhc-demo",
+    "insurer": "UnitedHealthcare Community Plan of Ohio",
+    "plan_name": "Dual Complete OH-S3",
+    "plan_year": "2026",
+    "member_id": "UHC-55933",
+    "group_number": "UHC-OH-S3",
+    "effective_date": "2026-01-01"
+  },
+  "suggested_order": {
+    "order_text": "MRI thoracic spine without contrast",
+    "service_code": "72146",
+    "service_category": "MRI thoracic spine without contrast",
+    "pa_required": true,
+    "pa_status": "required",
+    "icd10_codes": ["M54.6"]
+  },
+  "diagnoses": [
+    { "code": "M54.6", "display": "Pain in thoracic spine" }
+  ],
+  "synthetic": true,
+  "demo_set": "uhc-patients",
+  "demo_tag": "pa_required"
+}

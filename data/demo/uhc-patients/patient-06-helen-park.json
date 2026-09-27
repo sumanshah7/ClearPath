@@ -1,0 +1,41 @@
+{
+  "id": "uhc-pat-06-helen-park",
+  "full_name": "Helen Park",
+  "first_name": "Helen",
+  "last_name": "Park",
+  "dob": "1955-04-02",
+  "sex": "female",
+  "member_id": "UHC-22011",
+  "mrn": "MRN-10220",
+  "phone": "555-4106",
+  "email": "helen.park@uhc.patient.demo",
+  "address": {
+    "line1": "18 Willow Lane",
+    "city": "Columbus",
+    "state": "OH",
+    "postal_code": "43215"
+  },
+  "insurance": {
+    "payer_id": "payer-uhc-demo",
+    "insurer": "UnitedHealthcare Community Plan of Ohio",
+    "plan_name": "Dual Complete OH-S3",
+    "plan_year": "2026",
+    "member_id": "UHC-22011",
+    "group_number": "UHC-OH-S3",
+    "effective_date": "2026-01-01"
+  },
+  "suggested_order": {
+    "order_text": "Office visit - established patient",
+    "service_code": "99213",
+    "service_category": "Office visit - established patient",
+    "pa_required": false,
+    "pa_status": "not_required",
+    "icd10_codes": ["M54.5"]
+  },
+  "diagnoses": [
+    { "code": "M54.5", "display": "Low back pain" }
+  ],
+  "synthetic": true,
+  "demo_set": "uhc-patients",
+  "demo_tag": "no_pa"
+}

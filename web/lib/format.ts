@@ -40,6 +40,7 @@ const TONE: Record<string, "amber" | "blue" | "green" | "gray"> = {
   paused: "amber",
   draft: "amber",
   live: "green",
+  archived: "gray",
   indexed: "gray",
 };
 

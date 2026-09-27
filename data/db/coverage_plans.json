@@ -1,0 +1,195 @@
+[
+  {
+    "id": "plan-northwind-oap-2026",
+    "payer_id": "payer-northwind",
+    "insurer": "Northwind Mutual",
+    "plan_name": "Open Access PPO",
+    "plan_year": "2026",
+    "product_type": "PPO",
+    "network": "Open Access",
+    "demo_services": [
+      {
+        "label": "Office visit - established patient",
+        "codes": [
+          "99213"
+        ],
+        "pa_status": "not_required"
+      },
+      {
+        "label": "MRI lumbar spine without contrast",
+        "codes": [
+          "72148"
+        ],
+        "pa_status": "required"
+      },
+      {
+        "label": "Physical therapy evaluation",
+        "codes": [
+          "97161"
+        ],
+        "pa_status": "conditional"
+      }
+    ],
+    "synthetic": true
+  },
+  {
+    "id": "plan-uhc-oh-s3-2026",
+    "payer_id": "payer-uhc-demo",
+    "insurer": "UnitedHealthcare Community Plan of Ohio",
+    "plan_name": "Dual Complete OH-S3",
+    "plan_year": "2026",
+    "product_type": "Medicare Advantage",
+    "network": "Community",
+    "demo_services": [
+      {
+        "label": "Outpatient diagnostic tests - imaging",
+        "codes": [
+          "72148"
+        ],
+        "pa_status": "required"
+      },
+      {
+        "label": "MRI lumbar spine without contrast",
+        "codes": [
+          "72148"
+        ],
+        "pa_status": "required"
+      },
+      {
+        "label": "MRI cervical spine without contrast",
+        "codes": [
+          "72141"
+        ],
+        "pa_status": "required"
+      },
+      {
+        "label": "MRI brain without contrast",
+        "codes": [
+          "70551"
+        ],
+        "pa_status": "required"
+      },
+      {
+        "label": "MRI thoracic spine without contrast",
+        "codes": [
+          "72146"
+        ],
+        "pa_status": "required"
+      },
+      {
+        "label": "CT lumbar spine without contrast",
+        "codes": [
+          "72131"
+        ],
+        "pa_status": "required"
+      },
+      {
+        "label": "CT brain without contrast",
+        "codes": [
+          "70450"
+        ],
+        "pa_status": "required"
+      },
+      {
+        "label": "X-ray spine",
+        "codes": [
+          "72100"
+        ],
+        "pa_status": "not_required"
+      },
+      {
+        "label": "X-ray lumbar spine 2 or 3 views",
+        "codes": [
+          "72100"
+        ],
+        "pa_status": "not_required"
+      },
+      {
+        "label": "X-ray chest 2 views",
+        "codes": [
+          "71046"
+        ],
+        "pa_status": "not_required"
+      },
+      {
+        "label": "Physical therapy evaluation",
+        "codes": [
+          "97161"
+        ],
+        "pa_status": "conditional"
+      },
+      {
+        "label": "Office visit - established patient",
+        "codes": [
+          "99213"
+        ],
+        "pa_status": "not_required"
+      },
+      {
+        "label": "Office visit - new patient",
+        "codes": [
+          "99203"
+        ],
+        "pa_status": "not_required"
+      }
+    ],
+    "synthetic": true
+  },
+  {
+    "id": "plan-acme-value-hmo-2026",
+    "payer_id": "payer-acme",
+    "insurer": "Acme Health Partners",
+    "plan_name": "Value HMO",
+    "plan_year": "2026",
+    "product_type": "HMO",
+    "network": "Value",
+    "demo_services": [
+      {
+        "label": "Cranial venography mapping",
+        "codes": [
+          "22222"
+        ],
+        "pa_status": "required"
+      }
+    ],
+    "synthetic": true
+  },
+  {
+    "id": "plan-generic-choice-ppo-2026",
+    "payer_id": "payer-generic-mutual",
+    "insurer": "Generic Mutual",
+    "plan_name": "Choice PPO",
+    "plan_year": "2026",
+    "product_type": "PPO",
+    "network": "Choice",
+    "demo_services": [
+      {
+        "label": "Outpatient diagnostic tests - vascular",
+        "codes": [
+          "22222"
+        ],
+        "pa_status": "conditional"
+      }
+    ],
+    "synthetic": true
+  },
+  {
+    "id": "plan-lakeshore-basic-2026",
+    "payer_id": "payer-lakeshore",
+    "insurer": "Lakeshore Advantage",
+    "plan_name": "Basic PPO",
+    "plan_year": "2026",
+    "product_type": "PPO",
+    "network": "Basic",
+    "demo_services": [
+      {
+        "label": "Pelvic densitometry panel",
+        "codes": [
+          "33333"
+        ],
+        "pa_status": "required"
+      }
+    ],
+    "synthetic": true
+  }
+]

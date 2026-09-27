@@ -14,7 +14,13 @@ from app.errors import ApiError
 from app.fhir.builders import build_for_policy
 from app.fhir.validate import validate_resource
 from app.ingest import cascade, pdf_reader, precheck, upload_validation
-from app.ingest.coverage_lines import merge_uncovered, uncovered_lines
+from app.ingest.coverage_lines import (
+    is_plausible_service_label,
+    merge_uncovered,
+    normalize_service_label,
+    service_label_from_line,
+    uncovered_lines,
+)
 from app.ingest.scorecard import benefit_score
 from app.ingest.table_grid import rows_from_words
 from app.ingest.grounding import check as ground
@@ -333,7 +339,8 @@ def _run(policy: dict, run_id: str, recorder: EpisodeRecorder) -> dict:
 
     page_by_num = {p["page"]: p for p in cleaned}
     selected = [page_by_num[n] for n in sections["pages"] if n in page_by_num] or cleaned
-    batch = 2 if policy["document_role"] == "benefit_summary" else None
+    # One page per EOC extract call — dense benefit charts time out when batched (was 2).
+    batch = 1 if policy["document_role"] == "benefit_summary" else None
     groups = _groups(selected, batch)
     memory = empty()
     extracted: list[dict] = []
@@ -468,6 +475,9 @@ def _identity(pages, run_id, recorder, digest) -> dict:
         hit = cache.get(cache.stage_key(digest, "identity"))
         if hit is not None:
             return {"identity": hit, "cache_hit": True}
+        # Prefer a human-confirmed identity when the model path is unavailable (e.g. 403).
+        repo = get_repo()
+        # digest is sha256 of the policy being read; find by cache key context via run.
         first = pages[:5]
         data = complete(
             "p_id",
@@ -487,6 +497,31 @@ def _identity(pages, run_id, recorder, digest) -> dict:
                 data[field] = {"value": None, "evidence": None, "page": None}
         cache.put(cache.stage_key(digest, "identity"), "stage", digest, data, None)
         return {"identity": data, "cache_hit": False}
+
+    # If the reviewer already set identity, do not call the model.
+    try:
+        from app.repository import get_repo as _get_repo
+
+        # run_id is tied to a policy via ingestion_runs
+        run = _get_repo()._one("ingestion_runs", "select * from ingestion_runs where id = ?", (run_id,))
+        if run and run.get("policy_id"):
+            policy = _get_repo().get_policy(run["policy_id"])
+            if policy and policy.get("identity_edited_by_human") and (
+                policy.get("insurer") or (policy.get("identity_evidence") or {}).get("insurer")
+            ):
+                evidence = policy.get("identity_evidence") or {}
+                identity = {
+                    "insurer": evidence.get("insurer")
+                    or {"value": policy.get("insurer"), "evidence": "human edit", "page": None},
+                    "plan_name": evidence.get("plan_name")
+                    or {"value": policy.get("plan_name"), "evidence": "human edit", "page": None},
+                    "plan_year": evidence.get("plan_year")
+                    or {"value": policy.get("plan_year"), "evidence": "human edit", "page": None},
+                }
+                recorder.record("identity", "Using reviewer-confirmed plan identity", status="completed")
+                return identity
+    except Exception:
+        pass
 
     result = recorder.step("identity", "Reading plan identity", load, done=lambda v: "Identity read from the document")
     return result["identity"]
@@ -552,7 +587,11 @@ def _persist_items(policy, extracted, page_by_num, run_id, recorder, block_id: s
         page_text = (page_by_num.get(page) or {}).get("text") or ""
         if item["item_type"] == "coverage":
             evidence = (item["payload"].get("evidence_text") or "").strip()
+            label = (item.get("service_label") or "").strip()
             if key in seen or not evidence or evidence not in page_text:
+                continue
+            # Drop wrapped eligibility / mid-sentence shards the model or recover pass invents.
+            if not is_plausible_service_label(label) and not is_plausible_service_label(evidence):
                 continue
         elif key in seen:
             key = f"{key}_{seq}"
@@ -829,12 +868,104 @@ def _labels_match(left: str, right: str) -> bool:
     return bool(a_words) and all(word in b for word in a_words)
 
 
+def _reject_fragment_coverage(policy_id: str, recorder=None) -> int:
+    """Auto-reject coverage rows that are wrapped sentence fragments, not services.
+
+    Restores only previously auto-rejected rows whose label is now plausible AND
+    the judge already marked them ACCURATE with grounding passed (avoids reviving junk).
+    """
+    repo = get_repo()
+    rejected = 0
+    restored = 0
+    reason = (
+        "Auto-rejected: label is a wrapped eligibility or mid-sentence fragment, "
+        "not a benefit-chart service."
+    )
+    for item in repo.items_for(policy_id):
+        if not item or item.get("item_type") != "coverage":
+            continue
+        if item.get("edited_by_human"):
+            continue
+        label = (item.get("service_label") or (item.get("data") or {}).get("service_label") or "").strip()
+        state = item.get("review_state")
+        # Restore false positives from an earlier fragment pass — only clean ACCURATE rows.
+        if state == "rejected" and (item.get("judge_reason") or "").startswith("Auto-rejected: label is a wrapped"):
+            cleaned = normalize_service_label(label)
+            evidence = ((item.get("data") or {}).get("evidence_text") or "").strip()
+            if evidence:
+                parsed = service_label_from_line(evidence)
+                if is_plausible_service_label(parsed) and not is_plausible_service_label(cleaned):
+                    cleaned = parsed
+            grounded = bool((item.get("grounding") or {}).get("passed"))
+            accurate = (item.get("judge_verdict") or "") == "ACCURATE"
+            if is_plausible_service_label(cleaned) and grounded and accurate:
+                data = {**(item.get("data") or {}), "service_label": cleaned}
+                new_state = initial_state(item.get("grounding") or {}, "ACCURATE", item.get("question_verdict"))
+                repo.write_item(
+                    item["id"],
+                    {
+                        "review_state": new_state,
+                        "service_label": cleaned,
+                        "data": data,
+                        "judge_reason": "Restored: label is a plausible chart service.",
+                    },
+                    actor="engine",
+                )
+                restored += 1
+            continue
+        if state in {"accepted", "edited", "rejected"}:
+            continue
+        cleaned = normalize_service_label(label)
+        if cleaned != label and is_plausible_service_label(cleaned):
+            data = {**(item.get("data") or {}), "service_label": cleaned}
+            # Clear PA borrowed onto junk titles that we just cleaned into a real name —
+            # annotate will re-apply on finalize/reconcile when appropriate.
+            repo.write_item(
+                item["id"],
+                {"service_label": cleaned, "data": data},
+                actor="engine",
+            )
+            label = cleaned
+        if is_plausible_service_label(label):
+            continue
+        # Also clear PA on rows we are about to reject so FHIR/catalog stay clean if revived.
+        data = {**(item.get("data") or {})}
+        data["pa_required"] = False
+        data["pa_status"] = "not_required"
+        data["marker_used"] = None
+        repo.write_item(
+            item["id"],
+            {
+                "review_state": "rejected",
+                "judge_reason": reason,
+                "data": data,
+            },
+            actor="engine",
+        )
+        rejected += 1
+    if recorder is not None:
+        recorder.record(
+            "cleanup",
+            f"Rejected {rejected} fragment coverage rows (restored {restored})",
+            detail={"rejected": rejected, "restored": restored},
+        )
+    return rejected
+
+
 def _finish_draft(policy, items, memory, recorder) -> None:
     repo = get_repo()
-    active = [item for item in items if item and item["review_state"] != "rejected"]
+    rejected = _reject_fragment_coverage(policy["id"], recorder)
+    fresh = repo.items_for(policy["id"])
+    active = [item for item in fresh if item and item["review_state"] != "rejected"]
     resource = build_for_policy(policy, active, status="draft")
     errors = validate_resource(resource)
-    report = _validation_report(items, errors)
+    report = _validation_report(active, errors)
+    report = {
+        **(report or {}),
+        "fragment_rows_rejected": rejected,
+        "rejected_item_count": sum(1 for item in fresh if item and item["review_state"] == "rejected"),
+        "active_item_count": len(active),
+    }
     changes = {
         "status": "draft",
         "working_memory": memory,
@@ -850,14 +981,21 @@ def _finish_draft(policy, items, memory, recorder) -> None:
 
 def _normalize(raw: dict, role: str) -> dict:
     if "service_label" in raw or role == "benefit_summary" and "pa_required" in raw:
-        label = raw["service_label"]
+        label = normalize_service_label(str(raw.get("service_label") or ""))
+        if role == "benefit_summary" and not is_plausible_service_label(label):
+            evidence = " ".join(str(raw.get("evidence_text") or "").split())
+            parsed = service_label_from_line(evidence) if evidence else ""
+            if parsed and is_plausible_service_label(parsed):
+                label = parsed
+            else:
+                raise ValueError("coverage label is a non-service fragment")
         return {
             "item_type": "coverage",
-            "item_key": re.sub(r"[^a-z0-9]+", "_", label.lower()).strip("_")[:48] or "coverage",
+            "item_key": re.sub(r"[^a-z0-9]+", "_", str(label).lower()).strip("_")[:48] or "coverage",
             "page": int(raw["page"]),
             "service_label": label,
             "service_codes": raw.get("service_codes") or [],
-            "payload": raw,
+            "payload": {**raw, "service_label": label},
         }
     key = raw["criterion_key"]
     applies = raw.get("applies_to") or []
@@ -1054,9 +1192,10 @@ def upload_response(policy: dict, *, cached: bool) -> dict:
         },
         "sections": policy.get("sections") or {},
         "item_counts": {
-            "total": len(items),
+            "total": sum(1 for item in items if item["review_state"] != "rejected"),
             "auto_approved": sum(1 for item in items if item["review_state"] == "auto_approved"),
             "pending_review": sum(1 for item in items if item["review_state"] == "pending_review"),
+            "rejected": sum(1 for item in items if item["review_state"] == "rejected"),
         },
         "validation_report": policy.get("validation_report") or {},
         "fhir_insurance_plan": policy.get("fhir_insurance_plan"),
@@ -1096,8 +1235,9 @@ def finalize_draft(policy_id: str) -> dict:
 def reconcile_pa_flags(policy_id: str, *, listing_text: str | None = None) -> dict:
     """Set pa_required / pa_status from EOC page markers (and optional PA listing PDF text).
 
-    Dagger markers often sit on the next line of a chart row. Matching is by service
-    label against the uploaded EOC pages — never by payer name.
+    When a listing is provided it is the PA authority: matched/created rows take listing
+    status, and residual EOC-only rows lose weak dagger flags so totals reflect the listing.
+    Matching is by service label against the uploaded EOC pages — never by payer name.
     """
     from app.ingest.pa_markers import annotate_item_from_pages, parse_pa_listing_text
     from app.fhir.builders import build_for_policy
@@ -1117,42 +1257,54 @@ def reconcile_pa_flags(policy_id: str, *, listing_text: str | None = None) -> di
     else:
         pages, _report = clean(pdf_reader.read_pdf(policy["storage_path"]))
 
+    listing_rows: list[dict] = []
+    if listing_text:
+        listing_rows = parse_pa_listing_text(listing_text)
+
     updated = 0
-    for item in repo.items_for(policy_id):
-        if item.get("edited_by_human"):
-            continue
-        patch = annotate_item_from_pages(item, pages)
-        if not patch:
-            continue
-        data = {**(item.get("data") or {}), **patch}
-        if (
-            data.get("pa_required") == (item.get("data") or {}).get("pa_required")
-            and data.get("pa_status") == (item.get("data") or {}).get("pa_status")
-            and data.get("marker_used") == (item.get("data") or {}).get("marker_used")
-        ):
-            continue
-        repo.write_item(
-            item["id"],
-            {
-                "data": data,
-                # Keep human review state; only refresh the PA flags.
-            },
-            actor="engine",
-        )
-        updated += 1
+    # Dagger annotate is useful alone; when a listing is present, listing wins afterward.
+    if not listing_rows:
+        for item in repo.items_for(policy_id):
+            if item.get("edited_by_human"):
+                continue
+            if item.get("review_state") == "rejected":
+                continue
+            patch = annotate_item_from_pages(item, pages)
+            if not patch:
+                continue
+            data = {**(item.get("data") or {}), **patch}
+            if (
+                data.get("pa_required") == (item.get("data") or {}).get("pa_required")
+                and data.get("pa_status") == (item.get("data") or {}).get("pa_status")
+                and data.get("marker_used") == (item.get("data") or {}).get("marker_used")
+            ):
+                continue
+            repo.write_item(item["id"], {"data": data}, actor="engine")
+            updated += 1
 
     listing_applied = 0
-    if listing_text:
-        listing_applied = _apply_pa_listing(policy, pages, parse_pa_listing_text(listing_text))
+    residuals_cleared = 0
+    if listing_rows:
+        listing_applied = _apply_pa_listing(policy, pages, listing_rows)
+        _dedupe_listing_index_rows(policy_id)
+        residuals_cleared = _clear_non_listing_pa_flags(policy_id)
 
     items = [row for row in repo.items_for(policy_id) if row and row["review_state"] != "rejected"]
     resource = build_for_policy(policy, items, status=policy.get("status") if policy.get("status") == "live" else "draft")
     errors = validate_resource(resource)
+    listing_indexed = [i for i in items if (i.get("data") or {}).get("listing_index") is not None]
+    scorecard_items = listing_indexed or items
     changes = {
         "validation_report": {
             **(policy.get("validation_report") or {}),
             "fhir": {"valid": not errors, "errors": errors},
-            "pa_reconcile": {"updated": updated, "listing_applied": listing_applied, "total": len(items)},
+            "pa_reconcile": {
+                "updated": updated,
+                "listing_applied": listing_applied,
+                "residuals_cleared": residuals_cleared,
+                "total": len(items),
+                "listing_indexed": len(listing_indexed),
+            },
         }
     }
     if resource.get("resourceType") == "InsurancePlan":
@@ -1160,87 +1312,167 @@ def reconcile_pa_flags(policy_id: str, *, listing_text: str | None = None) -> di
     repo.update_policy(policy_id, changes, actor="engine")
 
     totals = {
-        "total": len(items),
-        "required": sum(1 for i in items if (i.get("data") or {}).get("pa_status") == "required" or ((i.get("data") or {}).get("pa_required") and (i.get("data") or {}).get("pa_status") != "conditional")),
-        "conditional": sum(1 for i in items if (i.get("data") or {}).get("pa_status") == "conditional"),
-        "not_required": sum(1 for i in items if (i.get("data") or {}).get("pa_status") == "not_required" or ((i.get("data") or {}).get("pa_required") is False and not (i.get("data") or {}).get("pa_status"))),
+        "total": len(scorecard_items),
+        "required": sum(1 for i in scorecard_items if (i.get("data") or {}).get("pa_status") == "required"),
+        "conditional": sum(1 for i in scorecard_items if (i.get("data") or {}).get("pa_status") == "conditional"),
+        "not_required": sum(
+            1
+            for i in scorecard_items
+            if (i.get("data") or {}).get("pa_status") == "not_required"
+            or (
+                (i.get("data") or {}).get("pa_status") is None
+                and not (i.get("data") or {}).get("pa_required")
+            )
+        ),
         "updated": updated,
         "listing_applied": listing_applied,
+        "residuals_cleared": residuals_cleared,
+        "active_coverage": len(items),
     }
-    # Recompute on active (non-rejected) items only.
-    fresh = [row for row in repo.items_for(policy_id) if row.get("review_state") != "rejected"]
-    totals["total"] = len(fresh)
-    totals["required"] = sum(1 for i in fresh if (i.get("data") or {}).get("pa_status") == "required")
-    totals["conditional"] = sum(1 for i in fresh if (i.get("data") or {}).get("pa_status") == "conditional")
-    totals["not_required"] = sum(
-        1
-        for i in fresh
-        if (i.get("data") or {}).get("pa_status") == "not_required"
-        or (
-            (i.get("data") or {}).get("pa_status") is None
-            and not (i.get("data") or {}).get("pa_required")
-        )
-    )
     return {"id": policy_id, "totals": totals, "fhir_valid": not errors}
+
+
+def _dedupe_listing_index_rows(policy_id: str) -> int:
+    """Keep one active coverage row per listing_index; reject extras from prior runs."""
+    repo = get_repo()
+    by_idx: dict[int, list[dict]] = {}
+    for item in repo.items_for(policy_id):
+        if item.get("review_state") == "rejected" or item.get("item_type") != "coverage":
+            continue
+        idx = (item.get("data") or {}).get("listing_index")
+        if idx is None:
+            continue
+        by_idx.setdefault(int(idx), []).append(item)
+    rejected = 0
+    for idx, group in by_idx.items():
+        if len(group) < 2:
+            continue
+        # Prefer the longest label / pa_list key / newest seq.
+        group.sort(
+            key=lambda row: (
+                len(row.get("service_label") or ""),
+                1 if str(row.get("item_key") or "").startswith("pa_list_") else 0,
+                row.get("seq") or 0,
+            ),
+            reverse=True,
+        )
+        for extra in group[1:]:
+            if extra.get("edited_by_human"):
+                continue
+            repo.write_item(
+                extra["id"],
+                {
+                    "review_state": "rejected",
+                    "judge_reason": "Auto-rejected: duplicate listing_index from an earlier reconcile pass.",
+                },
+                actor="engine",
+            )
+            rejected += 1
+    return rejected
+
+
+def _clear_non_listing_pa_flags(policy_id: str) -> int:
+    """When a listing is the PA authority, drop EOC-only coverage residuals from the review set.
+
+    Listing categories are the benefit catalog for Gate 1 / PA. Chart fragments that never
+    received a listing_index stay in the DB as rejected so the queue shows ~N listing rows,
+    not every recovered EOC line.
+    """
+    repo = get_repo()
+    cleared = 0
+    for item in repo.items_for(policy_id):
+        if item.get("item_type") != "coverage":
+            continue
+        if item.get("edited_by_human") or item.get("review_state") == "rejected":
+            continue
+        data = item.get("data") or {}
+        if data.get("listing_index") is not None:
+            continue
+        patch = {
+            **data,
+            "pa_required": False,
+            "pa_status": "not_required",
+            "marker_used": None,
+        }
+        repo.write_item(
+            item["id"],
+            {
+                "data": patch,
+                "review_state": "rejected",
+                "judge_reason": (
+                    "Auto-rejected: superseded by the PA listing catalog. "
+                    "This EOC line was not one of the listing benefit categories."
+                ),
+            },
+            actor="engine",
+        )
+        cleared += 1
+    return cleared
 
 
 def _apply_pa_listing(policy: dict, pages: list[dict], listing: list[dict]) -> int:
     """Add or update coverage rows from a PA listing when the service name is on an EOC page."""
-    from app.ingest.pa_markers import labels_match, significant_words
+    from app.ingest.coverage_lines import is_plausible_service_label
+    from app.ingest.pa_markers import best_coverage_for_listing, significant_words
 
     repo = get_repo()
-    page_texts = [(int(p["page"]), p.get("text") or "") for p in pages]
+    page_texts = [(int(p["page"]), p.get("text") or "", p.get("grid_rows") or []) for p in pages]
     items = list(repo.items_for(policy["id"]))
     applied = 0
     matched_ids: set[str] = set()
     claimed_indexes: set[int] = set()
 
-    def find_existing(label: str) -> dict | None:
-        # Prefer active rows, then rejected listing rows we can revive.
-        active = [i for i in items if i.get("review_state") != "rejected"]
-        rejected = [i for i in items if i.get("review_state") == "rejected"]
-        for pool in (active, rejected):
-            for item in pool:
-                if item["id"] in matched_ids:
-                    continue
-                if labels_match(label, item.get("service_label") or ""):
-                    return item
-                data_label = (item.get("data") or {}).get("service_label") or ""
-                if data_label and labels_match(label, data_label):
-                    return item
-        return None
-
-    def ground_page(label: str) -> tuple[int | None, str | None]:
+    def ground_page(label: str) -> tuple[int | None, str | None, bool]:
+        """Return (page, evidence, chart_shaped). Listing may insert when chart_shaped."""
         label_low = label.lower()
         words = significant_words(label)
-        best: tuple[int, str, int] | None = None
-        for num, text in page_texts:
+        best: tuple[int, str, int, bool] | None = None
+        for num, text, grid in page_texts:
+            for row in grid:
+                service = (row.get("service") or "").strip()
+                if service and (
+                    label_low in service.lower()
+                    or service.lower() in label_low
+                    or len(words & significant_words(service)) >= max(2, min(3, len(words) // 2 or 1))
+                ):
+                    return num, row.get("line") or service, True
             low = text.lower()
             if label_low[:28] in low or label_low in low:
                 evidence = label
+                chart = False
                 for line in text.splitlines():
-                    if label_low[:20] in line.lower():
-                        evidence = line.strip()
-                        break
-                return num, evidence
+                    stripped = line.strip()
+                    if label_low[:20] not in stripped.lower() and label_low not in stripped.lower():
+                        continue
+                    evidence = stripped or label
+                    chart = is_plausible_service_label(stripped) or is_plausible_service_label(label)
+                    if chart:
+                        return num, evidence, True
+                # Name appears on the page (TOC or chart). Allow listing insert using the listing label.
+                return num, evidence, True
             if not words:
                 continue
-            page_words = set(re.findall(r"[a-z]{4,}", low))
+            page_words = set(re.findall(r"[a-z]{3,}", low))
             overlap = len(words & page_words)
             need = max(2, min(3, len(words) // 2 or 1))
-            if overlap >= need:
-                evidence = label
-                for line in text.splitlines():
-                    line_words = set(re.findall(r"[a-z]{4,}", line.lower()))
-                    if len(words & line_words) >= min(2, len(words)):
-                        evidence = line.strip()
-                        break
-                score = overlap
-                if best is None or score > best[2]:
-                    best = (num, evidence, score)
+            if overlap < need:
+                continue
+            evidence = label
+            chart = False
+            for line in text.splitlines():
+                line_words = set(re.findall(r"[a-z]{3,}", line.lower()))
+                if len(words & line_words) < min(2, len(words)):
+                    continue
+                evidence = line.strip() or label
+                chart = is_plausible_service_label(evidence) or is_plausible_service_label(label)
+                if chart:
+                    break
+            score = overlap + (5 if chart else 0)
+            if best is None or score > best[2]:
+                best = (num, evidence, score, chart or overlap >= 3)
         if best:
-            return best[0], best[1]
-        return None, None
+            return best[0], best[1], best[3]
+        return None, None, False
 
     used_keys = {
         (i.get("item_type"), i.get("item_key"))
@@ -1249,21 +1481,51 @@ def _apply_pa_listing(policy: dict, pages: list[dict], listing: list[dict]) -> i
     }
 
     for row in listing:
-        label = (row.get("service_label") or "").strip()
+        label = " ".join(str(row.get("service_label") or "").split()).strip()
         if len(label) < 8:
             continue
-        # Reject truncated junk fragments from a bad earlier parse.
-        if label.startswith(("(", "$")) or re.match(
-            r"^(visit|tests|exam|screening|infection)\b", label, re.I
-        ):
+        # Reject truncated junk fragments from a bad earlier parse (bare stems only).
+        if label.startswith(("(", "$")):
             continue
-        page_no, evidence = ground_page(label)
-        if page_no is None:
+        if re.fullmatch(r"(?:visit|tests|exam|screening|infection)s?", label, re.I):
             continue
+        # Close obviously truncated open-paren names before matching/grounding.
+        if label.count("(") > label.count(")") and not label.endswith(")"):
+            # Keep matching on the stem before the open paren when wrap failed.
+            stem = label.split("(", 1)[0].strip()
+            if len(stem) >= 8:
+                label = stem
         idx = row.get("listing_index")
         if idx is not None and idx in claimed_indexes:
             continue
-        existing_item = find_existing(label)
+
+        active = [i for i in items if i.get("review_state") != "rejected"]
+        rejected = [i for i in items if i.get("review_state") == "rejected"]
+        # Prefer an existing row already tagged with this listing index (idempotent re-runs).
+        existing_item = None
+        if idx is not None:
+            for pool in (active, rejected):
+                for item in pool:
+                    if item["id"] in matched_ids:
+                        continue
+                    if (item.get("data") or {}).get("listing_index") == idx:
+                        existing_item = item
+                        break
+                if existing_item:
+                    break
+        if existing_item is None:
+            existing_item = best_coverage_for_listing(label, active, claimed=matched_ids)
+        if existing_item is None:
+            existing_item = best_coverage_for_listing(label, rejected, claimed=matched_ids)
+
+        page_no, evidence, chart_shaped = ground_page(label)
+        if page_no is None and existing_item is None:
+            continue
+        if page_no is None and existing_item is not None:
+            page_no = existing_item.get("page") or (existing_item.get("data") or {}).get("page")
+            evidence = (existing_item.get("data") or {}).get("evidence_text") or label
+            chart_shaped = True
+
         marker = None
         if existing_item:
             marker = (existing_item.get("data") or {}).get("marker_used")
@@ -1295,6 +1557,9 @@ def _apply_pa_listing(policy: dict, pages: list[dict], listing: list[dict]) -> i
             if idx is not None:
                 claimed_indexes.add(idx)
             applied += 1
+            continue
+        # New listing row only when the EOC mentions the service (chart_shaped ground).
+        if not chart_shaped:
             continue
         # New grounded coverage row from the listing.
         base_key = re.sub(r"[^a-z0-9]+", "_", label.lower()).strip("_")[:40] or "coverage"

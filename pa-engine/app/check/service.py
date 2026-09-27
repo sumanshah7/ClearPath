@@ -262,12 +262,38 @@ def confirm_draft(pa_id: str, body: dict | None = None) -> dict:
 
     # Resolve opaque / missing plan ids to a live benefit summary so coverage matching works.
     policy = repo.get_policy(insurance_plan_id) if insurance_plan_id else None
+    if policy is not None and policy.get("status") != "live":
+        policy = None
+        insurance_plan_id = None
     if policy is None:
-        for row in repo.list_policies(False):
-            if row.get("document_role") == "benefit_summary" and row.get("status") == "live":
-                policy = row
-                insurance_plan_id = row["id"]
-                break
+        live_benefits = [
+            row
+            for row in repo.list_policies(False)
+            if row.get("document_role") == "benefit_summary" and row.get("status") == "live"
+        ]
+        if insurer:
+            matched = [
+                row
+                for row in live_benefits
+                if (row.get("insurer") or "").lower() == insurer.lower()
+                and (not plan_name or (row.get("plan_name") or "").lower() == plan_name.lower())
+            ]
+            if not matched:
+                matched = [row for row in live_benefits if (row.get("insurer") or "").lower() == insurer.lower()]
+            if matched:
+                policy = matched[0]
+                insurance_plan_id = policy["id"]
+            elif not live_benefits:
+                raise ApiError(
+                    "NO_ACTIVE_POLICY",
+                    f"No active policy for this plan ({insurer}"
+                    + (f" / {plan_name}" if plan_name else "")
+                    + "). Go live on a matching Evidence of Coverage in the Policy library.",
+                    409,
+                )
+        elif live_benefits:
+            policy = live_benefits[0]
+            insurance_plan_id = policy["id"]
     if policy:
         insurer = policy.get("insurer") or insurer
         plan_name = policy.get("plan_name") or plan_name
@@ -328,6 +354,123 @@ def get_questionnaire(pa_id: str) -> dict:
         if stored:
             return stored["resource"]
     return _snapshot_questionnaire(pa_id)
+
+
+def list_policy_questionnaires(policy_id: str) -> dict:
+    """List generated FHIR Questionnaire rows for a policy (insurance_plan_id)."""
+    repo = get_repo()
+    policy = repo.get_policy(policy_id)
+    if policy is None:
+        raise ApiError("POLICY_NOT_FOUND", "No policy with that id.", 404)
+    rows = []
+    for row in repo.list_fhir_questionnaires_for_plan(policy_id):
+        response_count = repo.count_questionnaire_responses(row["id"])
+        resource = row.get("resource") or {}
+        rows.append(
+            {
+                "id": row["id"],
+                "insurance_plan_id": row.get("insurance_plan_id"),
+                "service_category": row.get("service_category"),
+                "created_at": row.get("created_at"),
+                "title": resource.get("title") if isinstance(resource, dict) else None,
+                "item_count": len(resource.get("item") or []) if isinstance(resource, dict) else 0,
+                "response_count": response_count,
+                "can_delete": response_count == 0,
+                "delete_blocked_reason": (
+                    None
+                    if response_count == 0
+                    else "responses already submitted against this questionnaire"
+                ),
+            }
+        )
+    embedded = policy.get("fhir_questionnaire")
+    return {
+        "policy_id": policy_id,
+        "policy_status": policy.get("status"),
+        "embedded_questionnaire": bool(embedded),
+        "questionnaires": rows,
+    }
+
+
+def delete_questionnaire(policy_id: str, questionnaire_id: str) -> dict:
+    """Delete a generated questionnaire only when no QuestionnaireResponse exists."""
+    repo = get_repo()
+    policy = repo.get_policy(policy_id)
+    if policy is None:
+        raise ApiError("POLICY_NOT_FOUND", "No policy with that id.", 404)
+    stored = repo.get_fhir_questionnaire(questionnaire_id)
+    if stored is None or stored.get("insurance_plan_id") != policy_id:
+        raise ApiError("POLICY_NOT_FOUND", "No questionnaire with that id for this policy.", 404)
+    response_count = repo.count_questionnaire_responses(questionnaire_id)
+    if response_count > 0:
+        raise ApiError(
+            "QUESTIONNAIRE_HAS_RESPONSES",
+            "responses already submitted against this questionnaire",
+            409,
+            responses=response_count,
+        )
+    repo.delete_fhir_questionnaire(questionnaire_id)
+    # Clear embedded copy on the policy when it matches this resource id.
+    embedded = policy.get("fhir_questionnaire") or {}
+    if isinstance(embedded, dict) and embedded.get("id") == questionnaire_id:
+        repo.update_policy(policy_id, {"fhir_questionnaire": None}, actor="engine")
+    return {"deleted": True, "id": questionnaire_id}
+
+
+def regenerate_questionnaire(policy_id: str, questionnaire_id: str, *, reviewer: str = "reviewer") -> dict:
+    """Delete (if eligible) and create a fresh questionnaire from the live policy's rules."""
+    repo = get_repo()
+    policy = repo.get_policy(policy_id)
+    if policy is None:
+        raise ApiError("POLICY_NOT_FOUND", "No policy with that id.", 404)
+    if policy.get("status") != "live":
+        raise ApiError(
+            "NO_ACTIVE_POLICY",
+            "Regenerate needs the policy to be live. Go live first, then regenerate.",
+            409,
+        )
+    delete_questionnaire(policy_id, questionnaire_id)
+
+    from app.fhir.builders import questionnaire as build_q
+    from app.fhir.validate import validate_resource
+
+    items = [
+        i
+        for i in repo.items_for(policy_id)
+        if i["review_state"] in {"accepted", "edited"} and i["item_type"] == "rule"
+    ]
+    if not items:
+        raise ApiError("ITEMS_UNDECIDED", "No accepted rules to build a questionnaire from.", 409)
+    resource = build_q(policy, items, status="active")
+    resource["id"] = new_id()
+    errors = validate_resource(resource)
+    if errors:
+        raise ApiError("FHIR_INVALID", "FHIR validation failed: " + "; ".join(errors), 409)
+    stored = repo.save_fhir_questionnaire(
+        {
+            "insurance_plan_id": policy_id,
+            "service_category": (items[0].get("data") or {}).get("applies_to", [None])[0]
+            if items
+            else None,
+            "resource": resource,
+        }
+    )
+    repo.update_policy(policy_id, {"fhir_questionnaire": resource}, actor=reviewer)
+    return {
+        "deleted": questionnaire_id,
+        "questionnaire": {
+            "id": stored["id"],
+            "insurance_plan_id": policy_id,
+            "service_category": stored.get("service_category"),
+            "created_at": stored.get("created_at"),
+            "title": resource.get("title"),
+            "item_count": len(resource.get("item") or []),
+            "response_count": 0,
+            "can_delete": True,
+            "delete_blocked_reason": None,
+            "resource": resource,
+        },
+    }
 
 
 def submit_questionnaire_response(pa_id: str, body: dict) -> dict:
@@ -747,7 +890,9 @@ def _check(pa, payload, run_id, recorder, preset=None) -> dict:
             return present(pa["id"])
         raise ApiError(
             "POLICY_NOT_FOUND",
-            f"No live criteria match this order for {insurer or 'the selected'} / {plan_name or 'plan'}.",
+            f"No active policy for this plan ({insurer or 'the selected'}"
+            + (f" / {plan_name}" if plan_name else "")
+            + "). Go live on a matching policy in the Policy library, or pick a different plan.",
             404,
         )
 

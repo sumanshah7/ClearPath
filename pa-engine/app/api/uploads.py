@@ -55,6 +55,10 @@ async def upload_patient_report(
                 }
             )
 
+    uploaded_by = provider_id if provider_id and repo.get_provider(provider_id) else None
+    # Same validation for chart notes — unsigned provider ids trip FOREIGN KEY (500).
+    author_provider_id = uploaded_by
+
     if patient_id:
         # Keep original file on the chart for audit / answer sources.
         repo.create_document(
@@ -69,20 +73,23 @@ async def upload_patient_report(
         )
         notes = ((extracted.get("treatment_requested") or {}).get("clinical_notes") or "").strip()
         if notes:
-            repo.insert_record(
-                {
-                    "patient_id": patient_id,
-                    "resource_type": "DocumentReference",
-                    "record_kind": "uploaded_report_notes",
-                    "display": "Uploaded report extract",
-                    "body": notes,
-                    "author_provider_id": provider_id,
-                    "synthetic": 1,
-                    "start_date": now()[:10],
-                }
-            )
+            try:
+                repo.insert_record(
+                    {
+                        "patient_id": patient_id,
+                        "resource_type": "DocumentReference",
+                        "record_kind": "uploaded_report_notes",
+                        "display": "Uploaded report extract",
+                        "body": notes,
+                        "author_provider_id": author_provider_id,
+                        "synthetic": 1,
+                        "start_date": now()[:10],
+                    }
+                )
+            except Exception:
+                # Notes are helpful but must not fail the upload (F1).
+                pass
 
-    uploaded_by = provider_id if provider_id and repo.get_provider(provider_id) else None
     row = repo.create_uploaded_report(
         {
             "id": upload_id,

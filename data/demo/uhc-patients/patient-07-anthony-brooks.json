@@ -1,0 +1,41 @@
+{
+  "id": "uhc-pat-07-anthony-brooks",
+  "full_name": "Anthony Brooks",
+  "first_name": "Anthony",
+  "last_name": "Brooks",
+  "dob": "1969-08-19",
+  "sex": "male",
+  "member_id": "UHC-33880",
+  "mrn": "MRN-10338",
+  "phone": "555-4107",
+  "email": "anthony.brooks@uhc.patient.demo",
+  "address": {
+    "line1": "721 Ridge Road",
+    "city": "Dayton",
+    "state": "OH",
+    "postal_code": "45402"
+  },
+  "insurance": {
+    "payer_id": "payer-uhc-demo",
+    "insurer": "UnitedHealthcare Community Plan of Ohio",
+    "plan_name": "Dual Complete OH-S3",
+    "plan_year": "2026",
+    "member_id": "UHC-33880",
+    "group_number": "UHC-OH-S3",
+    "effective_date": "2026-01-01"
+  },
+  "suggested_order": {
+    "order_text": "X-ray chest 2 views",
+    "service_code": "71046",
+    "service_category": "X-ray chest 2 views",
+    "pa_required": false,
+    "pa_status": "not_required",
+    "icd10_codes": ["R05.9"]
+  },
+  "diagnoses": [
+    { "code": "R05.9", "display": "Cough, unspecified" }
+  ],
+  "synthetic": true,
+  "demo_set": "uhc-patients",
+  "demo_tag": "no_pa"
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "product": "ClearPath PA",
+  "kind": "dummy_json_database",
+  "notes": "Synthetic demo data only. Mutate these files as the app runs; do not store real PHI.",
+  "created_at": "2026-09-27T06:00:00Z",
+  "updated_at": "2026-09-27T06:04:04Z",
+  "collections": [
+    "users",
+    "providers",
+    "patients",
+    "clinics",
+    "facilities",
+    "payers",
+    "coverage_plans",
+    "patient_insurance",
+    "pa_requests",
+    "sessions",
+    "audit_log"
+  ]
+}

@@ -1,0 +1,72 @@
+[
+  {
+    "id": "ins-maria-northwind",
+    "patient_id": "11111111-1111-4111-8111-111111111111",
+    "payer_id": "payer-northwind",
+    "coverage_plan_id": "plan-northwind-oap-2026",
+    "member_id": "SYN-0042",
+    "group_number": "NW-GRP-100",
+    "subscriber_name": "Maria Rodriguez",
+    "relationship": "self",
+    "effective_date": "2026-01-01",
+    "termination_date": null,
+    "priority": "primary",
+    "synthetic": true
+  },
+  {
+    "id": "ins-mitchell-uhc",
+    "patient_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    "payer_id": "payer-uhc-demo",
+    "coverage_plan_id": "plan-uhc-oh-s3-2026",
+    "member_id": "SYN-0187",
+    "group_number": "UHC-OH-S3",
+    "subscriber_name": "James Mitchell",
+    "relationship": "self",
+    "effective_date": "2026-01-01",
+    "termination_date": null,
+    "priority": "primary",
+    "synthetic": true
+  },
+  {
+    "id": "ins-aisha-acme",
+    "patient_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    "payer_id": "payer-acme",
+    "coverage_plan_id": "plan-acme-value-hmo-2026",
+    "member_id": "SYN-0309",
+    "group_number": "ACME-HMO-22",
+    "subscriber_name": "Aisha Khan",
+    "relationship": "self",
+    "effective_date": "2026-01-01",
+    "termination_date": null,
+    "priority": "primary",
+    "synthetic": true
+  },
+  {
+    "id": "ins-robert-uhc",
+    "patient_id": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+    "payer_id": "payer-uhc-demo",
+    "coverage_plan_id": "plan-uhc-oh-s3-2026",
+    "member_id": "UHC-77421",
+    "group_number": "UHC-OH-S3",
+    "subscriber_name": "Robert Nguyen",
+    "relationship": "self",
+    "effective_date": "2026-01-01",
+    "termination_date": null,
+    "priority": "primary",
+    "synthetic": true
+  },
+  {
+    "id": "ins-elena-northwind",
+    "patient_id": "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+    "payer_id": "payer-northwind",
+    "coverage_plan_id": "plan-northwind-oap-2026",
+    "member_id": "SYN-0455",
+    "group_number": "NW-GRP-100",
+    "subscriber_name": "Elena Vasquez",
+    "relationship": "self",
+    "effective_date": "2026-01-01",
+    "termination_date": null,
+    "priority": "primary",
+    "synthetic": true
+  }
+]

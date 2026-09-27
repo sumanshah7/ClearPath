@@ -1,0 +1,112 @@
+[
+  {
+    "id": "ca39bac7-c17b-48b9-b5ab-708a198f2940",
+    "action": "login",
+    "collection": "sessions",
+    "target_id": "493e53a8-b6be-4284-88bb-b1c5773121d3",
+    "detail": {
+      "user_id": "user-doc-reyes",
+      "via": "Dr. Ana Reyes"
+    },
+    "created_at": "2026-09-27T06:04:04Z"
+  },
+  {
+    "id": "a46fed1b-81d1-45d9-9ae1-4f30cad51e1c",
+    "action": "login",
+    "collection": "sessions",
+    "target_id": "e7961d3e-9996-4314-aba1-d391a5ee0dab",
+    "detail": {
+      "user_id": "user-doc-reyes",
+      "via": "1679651234"
+    },
+    "created_at": "2026-09-27T06:04:04Z"
+  },
+  {
+    "id": "f1e9cfa3-d1e6-4acd-b62a-a4c3938d6de4",
+    "action": "login",
+    "collection": "sessions",
+    "target_id": "4d9901a2-cfed-417b-afaf-9f34b49e2bd8",
+    "detail": {
+      "user_id": "user-admin-suman",
+      "via": "suman"
+    },
+    "created_at": "2026-09-27T06:04:04Z"
+  },
+  {
+    "id": "3ce7f25c-a293-4768-ade7-fe20b908962c",
+    "action": "login",
+    "collection": "sessions",
+    "target_id": "ed64c3ca-335c-481d-885a-1c3efb633367",
+    "detail": {
+      "user_id": "user-patient-maria",
+      "via": "Maria Rodriguez"
+    },
+    "created_at": "2026-09-27T06:04:04Z"
+  },
+  {
+    "id": "a41dd8ba-d749-4b4f-b3ef-f9cec254704d",
+    "action": "login",
+    "collection": "sessions",
+    "target_id": "d61d2651-7d10-4a92-8635-0c79c4a8be80",
+    "detail": {
+      "user_id": "user-doc-anderson",
+      "via": "maya.anderson"
+    },
+    "created_at": "2026-09-27T06:04:04Z"
+  },
+  {
+    "id": "716a5d3d-7bf1-4c6e-ae97-313fa3f1cb41",
+    "action": "login",
+    "collection": "sessions",
+    "target_id": "b6075d03-4784-4bdf-af31-698db6cdbf4d",
+    "detail": {
+      "user_id": "user-doc-reyes",
+      "portal": "doctor"
+    },
+    "created_at": "2026-09-27T06:12:03Z"
+  },
+  {
+    "id": "c02800c3-175d-4b22-b960-4dec19f6f15c",
+    "action": "login",
+    "collection": "sessions",
+    "target_id": "f728614a-5dd1-4f9a-8811-15487080a7b5",
+    "detail": {
+      "user_id": "user-doc-anderson",
+      "portal": "doctor"
+    },
+    "created_at": "2026-09-27T06:12:43Z"
+  },
+  {
+    "id": "79d5eeed-b485-4a16-92cd-09a6ddd15cf9",
+    "action": "login",
+    "collection": "sessions",
+    "target_id": "400cbb01-68e6-46eb-818d-16e13a42f06e",
+    "detail": {
+      "user_id": "user-doc-reyes",
+      "portal": "doctor"
+    },
+    "created_at": "2026-09-27T06:13:55Z"
+  },
+  {
+    "id": "c8b4a5c8-1ed9-42af-90b4-377f297e3d79",
+    "action": "login",
+    "collection": "sessions",
+    "target_id": "c86ee9c0-f277-4f96-a8eb-9fdeb447902a",
+    "detail": {
+      "user_id": "user-doc-anderson",
+      "portal": "doctor"
+    },
+    "created_at": "2026-09-27T06:15:12Z"
+  },
+  {
+    "id": "d0b2cee7-449e-4808-8039-b895159d3e81",
+    "action": "login",
+    "collection": "sessions",
+    "target_id": "8273e53c-4b25-4762-9818-4cbc87e5d769",
+    "detail": {
+      "user_id": "user-doc-patel",
+      "portal": "doctor"
+    },
+    "created_at": "2026-09-27T07:12:39Z"
+  }
+]

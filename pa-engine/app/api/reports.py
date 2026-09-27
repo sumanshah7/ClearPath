@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, File, Form, UploadFile
+from fastapi import APIRouter, Body, File, Form, UploadFile
 from fastapi.responses import FileResponse
 
 from app.check.fact_extractor import extract
@@ -20,9 +20,46 @@ def patients():
     return {"patients": get_repo().list_patients()}
 
 
+@router.post("/patients")
+def upsert_patient(body: dict = Body(...)):
+    """Ensure a synthetic patient exists for the order desk (demo seed / login sync)."""
+    patient_id = (body.get("id") or "").strip()
+    full_name = (body.get("full_name") or "").strip()
+    if not patient_id or not full_name:
+        raise ApiError("INVALID_REQUEST", "Patient id and full_name are required.", 400)
+    row = get_repo().upsert_patient(
+        {
+            "id": patient_id,
+            "full_name": full_name,
+            "dob": body.get("dob"),
+            "sex": body.get("sex"),
+            "member_id": body.get("member_id"),
+            "synthetic": True if body.get("synthetic", True) else False,
+        }
+    )
+    return {"patient": row}
+
+
 @router.get("/providers")
 def providers():
     return {"providers": get_repo().list_providers()}
+
+
+@router.post("/providers")
+def upsert_provider(body: dict = Body(...)):
+    """Ensure a clinician exists before order/upload (demo doctor login sync)."""
+    provider_id = (body.get("id") or "").strip()
+    full_name = (body.get("full_name") or "").strip()
+    if not provider_id or not full_name:
+        raise ApiError("INVALID_REQUEST", "Provider id and full_name are required.", 400)
+    row = get_repo().upsert_provider(
+        {
+            "id": provider_id,
+            "full_name": full_name,
+            "specialty": (body.get("specialty") or None),
+        }
+    )
+    return {"provider": row}
 
 
 @router.get("/patients/{patient_id}/documents")
