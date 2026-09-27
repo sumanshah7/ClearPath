@@ -71,12 +71,35 @@ export type DoctorProfile = {
   } | null;
 };
 
+/** Clinician seed JSON shipped under web/data/db (Vercel root = web/). */
 function dbDir(): string {
-  return path.resolve(process.cwd(), "..", "data", "db");
+  const bundled = path.join(process.cwd(), "data", "db");
+  const monorepo = path.resolve(process.cwd(), "..", "data", "db");
+  return bundled;
+}
+
+function dbDirCandidates(): string[] {
+  return [
+    path.join(process.cwd(), "data", "db"),
+    path.resolve(process.cwd(), "..", "data", "db"),
+  ];
+}
+
+async function resolveDbDir(): Promise<string> {
+  for (const dir of dbDirCandidates()) {
+    try {
+      await fs.access(path.join(dir, "users.json"));
+      return dir;
+    } catch {
+      /* try next */
+    }
+  }
+  return dbDir();
 }
 
 async function readCollection<T>(name: string): Promise<T[]> {
-  const file = path.join(dbDir(), `${name}.json`);
+  const dir = await resolveDbDir();
+  const file = path.join(dir, `${name}.json`);
   const raw = await fs.readFile(file, "utf8");
   const data = JSON.parse(raw);
   if (!Array.isArray(data)) throw new Error(`${name}.json must be an array`);
@@ -169,32 +192,38 @@ export async function findDoctor(idOrName: string): Promise<DoctorProfile | null
 }
 
 export async function appendSession(session: Record<string, unknown>): Promise<void> {
-  const file = path.join(dbDir(), "sessions.json");
-  let rows: Record<string, unknown>[] = [];
+  // Cookie is the source of truth on Vercel (read-only filesystem except /tmp).
   try {
-    rows = JSON.parse(await fs.readFile(file, "utf8"));
-    if (!Array.isArray(rows)) rows = [];
-  } catch {
-    rows = [];
-  }
-  rows.push(session);
-  await fs.writeFile(file, `${JSON.stringify(rows, null, 2)}\n`);
+    const dir = await resolveDbDir();
+    const file = path.join(dir, "sessions.json");
+    let rows: Record<string, unknown>[] = [];
+    try {
+      rows = JSON.parse(await fs.readFile(file, "utf8"));
+      if (!Array.isArray(rows)) rows = [];
+    } catch {
+      rows = [];
+    }
+    rows.push(session);
+    await fs.writeFile(file, `${JSON.stringify(rows, null, 2)}\n`);
 
-  const auditFile = path.join(dbDir(), "audit_log.json");
-  let audit: Record<string, unknown>[] = [];
-  try {
-    audit = JSON.parse(await fs.readFile(auditFile, "utf8"));
-    if (!Array.isArray(audit)) audit = [];
+    const auditFile = path.join(dir, "audit_log.json");
+    let audit: Record<string, unknown>[] = [];
+    try {
+      audit = JSON.parse(await fs.readFile(auditFile, "utf8"));
+      if (!Array.isArray(audit)) audit = [];
+    } catch {
+      audit = [];
+    }
+    audit.push({
+      id: crypto.randomUUID(),
+      action: "login",
+      collection: "sessions",
+      target_id: session.id,
+      detail: { user_id: session.user_id, portal: "doctor" },
+      created_at: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
+    });
+    await fs.writeFile(auditFile, `${JSON.stringify(audit.slice(-500), null, 2)}\n`);
   } catch {
-    audit = [];
+    /* ignore EROFS / EPERM on serverless */
   }
-  audit.push({
-    id: crypto.randomUUID(),
-    action: "login",
-    collection: "sessions",
-    target_id: session.id,
-    detail: { user_id: session.user_id, portal: "doctor" },
-    created_at: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
-  });
-  await fs.writeFile(auditFile, `${JSON.stringify(audit.slice(-500), null, 2)}\n`);
 }

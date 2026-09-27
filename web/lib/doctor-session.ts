@@ -58,11 +58,16 @@ export function profileToSession(profile: DoctorProfile, sessionId: string): Doc
   };
 }
 
+function cookieSecure(): boolean {
+  return process.env.NODE_ENV === "production" || process.env.VERCEL === "1";
+}
+
 export async function setDoctorSessionCookie(session: DoctorSession): Promise<void> {
   const jar = await cookies();
   jar.set(DOCTOR_SESSION_COOKIE, JSON.stringify(session), {
     httpOnly: true,
     sameSite: "lax",
+    secure: cookieSecure(),
     path: "/",
     maxAge: MAX_AGE_SECONDS,
   });

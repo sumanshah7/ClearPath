@@ -1,16 +1,27 @@
 import { NextResponse } from "next/server";
 import { appendSession, findDoctor } from "@/lib/json-db";
 import { profileToSession, setDoctorSessionCookie } from "@/lib/doctor-session";
-import { API } from "@/lib/api";
 
 export const runtime = "nodejs";
+
+/** Absolute PA engine base for server-side fetches (login provider sync). */
+function engineBase(): string {
+  const env = (process.env.PA_ENGINE_URL || process.env.NEXT_PUBLIC_PA_ENGINE_URL || "").trim();
+  if (env.startsWith("http://") || env.startsWith("https://")) {
+    return env.replace(/\/$/, "");
+  }
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}/engine`;
+  }
+  return "http://127.0.0.1:8000";
+}
 
 async function syncProviderToEngine(profile: {
   provider_id: string;
   full_name: string;
   specialty?: string;
 }): Promise<void> {
-  const url = `${API.startsWith("http") ? API : "http://127.0.0.1:8000"}/providers`;
+  const url = `${engineBase()}/providers`;
   try {
     await fetch(url, {
       method: "POST",

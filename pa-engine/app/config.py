@@ -7,8 +7,21 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-ROOT = Path(__file__).resolve().parents[2]
+_PA_ENGINE_ROOT = Path(__file__).resolve().parents[1]
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _resolve_root() -> Path:
+    """Monorepo root locally; pa-engine folder when deployed alone on Vercel."""
+    if (_REPO_ROOT / "web").is_dir() or (_REPO_ROOT / "data" / "clearpath.db").exists():
+        return _REPO_ROOT
+    return _PA_ENGINE_ROOT
+
+
+ROOT = _resolve_root()
+PA_ENGINE_ROOT = _PA_ENGINE_ROOT
 load_dotenv(ROOT / ".env")
+load_dotenv(_PA_ENGINE_ROOT / ".env")
 
 PIPELINE_VERSION = os.environ.get("PIPELINE_VERSION", "v4")
 FHIR_BUILDER_VERSION = os.environ.get("FHIR_BUILDER_VERSION", "1")

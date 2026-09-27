@@ -1,0 +1,77 @@
+[
+  {
+    "id": "clinic-clearpath-main",
+    "name": "ClearPath Spine & Primary Care",
+    "npi": "1234567893",
+    "tax_id": "12-3456789",
+    "phone": "555-2000",
+    "fax": "555-2001",
+    "address": {
+      "line1": "100 Health Plaza",
+      "city": "Columbus",
+      "state": "OH",
+      "postal_code": "43215"
+    },
+    "synthetic": true
+  },
+  {
+    "id": "clinic-lakeside-imaging",
+    "name": "Lakeside Imaging Center",
+    "npi": "1098765432",
+    "tax_id": "98-7654321",
+    "phone": "555-2100",
+    "fax": "555-2101",
+    "address": {
+      "line1": "450 Lakeview Drive",
+      "city": "Dublin",
+      "state": "OH",
+      "postal_code": "43017"
+    },
+    "synthetic": true
+  },
+  {
+    "id": "clinic-riverside-neuro",
+    "name": "Riverside Neurology Associates",
+    "npi": "1876543210",
+    "tax_id": "45-1122334",
+    "phone": "555-2200",
+    "fax": "555-2201",
+    "address": {
+      "line1": "77 Riverwalk Way",
+      "city": "Cleveland",
+      "state": "OH",
+      "postal_code": "44114"
+    },
+    "synthetic": true
+  },
+  {
+    "id": "clinic-metro-ortho",
+    "name": "Metro Orthopedics",
+    "npi": "1765432109",
+    "tax_id": "33-9988776",
+    "phone": "555-2300",
+    "fax": "555-2301",
+    "address": {
+      "line1": "12 Stadium Road",
+      "city": "Akron",
+      "state": "OH",
+      "postal_code": "44308"
+    },
+    "synthetic": true
+  },
+  {
+    "id": "clinic-harbor-pt",
+    "name": "Harbor Physical Therapy",
+    "npi": "1654321098",
+    "tax_id": "22-5566778",
+    "phone": "555-2400",
+    "fax": "555-2401",
+    "address": {
+      "line1": "5 Harbor Lane",
+      "city": "Toledo",
+      "state": "OH",
+      "postal_code": "43604"
+    },
+    "synthetic": true
+  }
+]
