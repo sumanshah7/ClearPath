@@ -1,0 +1,64 @@
+{
+  "reports": [
+    {
+      "file": "patient-01-robert-nguyen-72148-report.pdf",
+      "patient": "Robert Nguyen",
+      "dob": "1959-01-18",
+      "order": "MRI lumbar spine without contrast",
+      "service_code": "72148",
+      "pa_status": "required",
+      "download_path": "/demo/uhc-reports/patient-01-robert-nguyen-72148-report.pdf",
+      "local_path": "data/demo/uhc-reports/patient-01-robert-nguyen-72148-report.pdf"
+    },
+    {
+      "file": "patient-02-priya-sharma-72100-report.pdf",
+      "patient": "Priya Sharma",
+      "dob": "1971-09-04",
+      "order": "X-ray lumbar spine 2 or 3 views",
+      "service_code": "72100",
+      "pa_status": "not_required",
+      "download_path": "/demo/uhc-reports/patient-02-priya-sharma-72100-report.pdf",
+      "local_path": "data/demo/uhc-reports/patient-02-priya-sharma-72100-report.pdf"
+    },
+    {
+      "file": "patient-03-marcus-bennett-72141-report.pdf",
+      "patient": "Marcus Bennett",
+      "dob": "1965-12-11",
+      "order": "MRI cervical spine without contrast",
+      "service_code": "72141",
+      "pa_status": "required",
+      "download_path": "/demo/uhc-reports/patient-03-marcus-bennett-72141-report.pdf",
+      "local_path": "data/demo/uhc-reports/patient-03-marcus-bennett-72141-report.pdf"
+    },
+    {
+      "file": "patient-04-linda-okonkwo-97161-report.pdf",
+      "patient": "Linda Okonkwo",
+      "dob": "1982-06-27",
+      "order": "Physical therapy evaluation",
+      "service_code": "97161",
+      "pa_status": "conditional",
+      "download_path": "/demo/uhc-reports/patient-04-linda-okonkwo-97161-report.pdf",
+      "local_path": "data/demo/uhc-reports/patient-04-linda-okonkwo-97161-report.pdf"
+    },
+    {
+      "file": "patient-06-helen-park-99213-report.pdf",
+      "patient": "Helen Park",
+      "dob": "1955-04-02",
+      "order": "Office visit - established patient",
+      "service_code": "99213",
+      "pa_status": "not_required",
+      "download_path": "/demo/uhc-reports/patient-06-helen-park-99213-report.pdf",
+      "local_path": "data/demo/uhc-reports/patient-06-helen-park-99213-report.pdf"
+    },
+    {
+      "file": "patient-08-nina-castillo-70551-report.pdf",
+      "patient": "Nina Castillo",
+      "dob": "1988-11-30",
+      "order": "MRI brain without contrast",
+      "service_code": "70551",
+      "pa_status": "required",
+      "download_path": "/demo/uhc-reports/patient-08-nina-castillo-70551-report.pdf",
+      "local_path": "data/demo/uhc-reports/patient-08-nina-castillo-70551-report.pdf"
+    }
+  ]
+}

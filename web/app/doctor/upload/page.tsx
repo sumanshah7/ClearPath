@@ -65,6 +65,35 @@ export default function DoctorUploadPage() {
 
       {error && <p className="badge amber">{error}</p>}
 
+      <section className="card" style={{ maxWidth: "36rem", marginBottom: "1rem" }}>
+        <h2 className="section-title" style={{ marginTop: 0 }}>
+          Demo UHC reports (synthetic)
+        </h2>
+        <p className="muted" style={{ marginBottom: "0.75rem" }}>
+          Download a sample Dual Complete OH-S3 chart, then upload it below. Not real PHI.
+        </p>
+        <ul className="plain-list" style={{ margin: 0, paddingLeft: "1.1rem", lineHeight: 1.55 }}>
+          <li>
+            <a href="/demo/uhc-reports/patient-01-robert-nguyen-72148-report.pdf">Robert Nguyen</a> — MRI lumbar (72148) · PA required
+          </li>
+          <li>
+            <a href="/demo/uhc-reports/patient-02-priya-sharma-72100-report.pdf">Priya Sharma</a> — X-ray lumbar (72100) · no PA
+          </li>
+          <li>
+            <a href="/demo/uhc-reports/patient-03-marcus-bennett-72141-report.pdf">Marcus Bennett</a> — MRI cervical (72141) · PA required
+          </li>
+          <li>
+            <a href="/demo/uhc-reports/patient-04-linda-okonkwo-97161-report.pdf">Linda Okonkwo</a> — PT evaluation (97161) · conditional
+          </li>
+          <li>
+            <a href="/demo/uhc-reports/patient-06-helen-park-99213-report.pdf">Helen Park</a> — Office visit (99213) · no PA
+          </li>
+          <li>
+            <a href="/demo/uhc-reports/patient-08-nina-castillo-70551-report.pdf">Nina Castillo</a> — MRI brain (70551) · PA required
+          </li>
+        </ul>
+      </section>
+
       <form className="card form-card" onSubmit={onSubmit} style={{ maxWidth: "36rem" }}>
         <label className="field">
           Ordering clinician
