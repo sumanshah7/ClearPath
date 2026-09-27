@@ -546,9 +546,15 @@ def significant_words(label: str) -> set[str]:
         "etc",
         "without",
         "contrast",
+        "views",
+        "view",
     }
+    text = (label or "").lower()
+    # Keep imaging stems intact ("x-ray" / "x-rays" → xray) so order text matches EOC labels.
+    text = re.sub(r"\bx[\s\-]?rays?\b", "xray", text)
+    text = re.sub(r"\b(ct|mri|pet)[\s\-]?scans?\b", r"\1", text)
     # 3+ letters so short clinical tokens (mri, snf, pet) still match benefit labels.
-    return {w for w in re.findall(r"[a-z]{3,}", (label or "").lower()) if w not in stop}
+    return {w for w in re.findall(r"[a-z]{3,}", text) if w not in stop}
 
 
 def labels_match(a: str, b: str) -> bool:

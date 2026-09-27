@@ -25,15 +25,20 @@
     "effective_date": "2026-01-01"
   },
   "suggested_order": {
-    "order_text": "Physical therapy evaluation",
-    "service_code": "97161",
-    "service_category": "Physical therapy evaluation",
+    "order_text": "Ambulance services",
+    "service_code": "",
+    "service_category": "Ambulance services",
     "pa_required": null,
     "pa_status": "conditional",
-    "icd10_codes": ["M54.16"]
+    "icd10_codes": [
+      "R55"
+    ]
   },
   "diagnoses": [
-    { "code": "M54.16", "display": "Radiculopathy, lumbar region" }
+    {
+      "code": "M54.16",
+      "display": "Radiculopathy, lumbar region"
+    }
   ],
   "synthetic": true,
   "demo_set": "uhc-patients",

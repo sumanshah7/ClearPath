@@ -25,15 +25,20 @@
     "effective_date": "2026-01-01"
   },
   "suggested_order": {
-    "order_text": "Office visit - established patient",
-    "service_code": "99213",
-    "service_category": "Office visit - established patient",
+    "order_text": "Annual wellness visit",
+    "service_code": "",
+    "service_category": "Annual wellness visit",
     "pa_required": false,
     "pa_status": "not_required",
-    "icd10_codes": ["M54.5"]
+    "icd10_codes": [
+      "Z00.00"
+    ]
   },
   "diagnoses": [
-    { "code": "M54.5", "display": "Low back pain" }
+    {
+      "code": "M54.5",
+      "display": "Low back pain"
+    }
   ],
   "synthetic": true,
   "demo_set": "uhc-patients",

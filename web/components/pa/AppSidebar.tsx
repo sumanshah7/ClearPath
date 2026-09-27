@@ -8,6 +8,7 @@ const LINKS = [
   { href: "/doctor/login", label: "Doctor sign in" },
   { href: "/doctor/upload", label: "Upload report" },
   { href: "/doctor", label: "Order desk" },
+  { href: "/doctor/requests", label: "Request status" },
   { href: "/admin/policies", label: "Policy library" },
   { href: "/insurer", label: "Insurer queue" },
 ];
@@ -24,7 +25,10 @@ export function AppSidebar() {
       </Link>
       <nav className="sidebar-nav" aria-label="Main">
         {LINKS.map((link) => {
-          const active = pathname === link.href || pathname.startsWith(`${link.href}/`);
+          const active =
+            link.href === "/doctor"
+              ? pathname === "/doctor"
+              : pathname === link.href || pathname.startsWith(`${link.href}/`);
           return (
             <Link key={link.href} href={link.href} className={active ? "active" : undefined}>
               {link.label}

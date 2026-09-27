@@ -24,8 +24,10 @@ def match(
         return _drug(repo, drug_name, insurer=insurer, plan_name=plan_name, plan_year=plan_year)
     if catalog_item_id:
         item = repo.get_item(catalog_item_id)
-        if item and item["review_state"] in {"accepted", "edited"}:
+        if item and item["review_state"] != "rejected":
             policy = repo.get_policy(item["policy_id"])
+            if policy and policy.get("status") != "live":
+                return {"status": "none", "items": [], "candidates": None}
             if policy and insurer and policy.get("insurer") != insurer:
                 return {"status": "none", "items": [], "candidates": None}
             return {"status": "matched", "items": [item], "candidates": None}
@@ -190,7 +192,7 @@ def _drug(
     pending = [b for b in named if b["status"] != "live"]
     if live:
         items = repo.items_for(live[0]["policy_id"], live[0]["id"])
-        items = [i for i in items if i["review_state"] in {"accepted", "edited"}]
+        items = [i for i in items if i["review_state"] != "rejected"]
         return {"status": "drug", "items": items, "block": live[0], "candidates": None}
     if pending:
         return {"status": "block_not_live", "items": [], "block": pending[0], "candidates": None}

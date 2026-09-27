@@ -110,6 +110,17 @@ export default function PolicyPage() {
       delete_blocked_reason?: string | null;
     }[]
   >([]);
+  const [hallucinationExamples, setHallucinationExamples] = useState<
+    {
+      id: string;
+      title: string;
+      page?: number;
+      review_state?: string;
+      judge_verdict?: string;
+      judge_reason?: string | null;
+      evidence_text?: string | null;
+    }[]
+  >([]);
   const [qBusyId, setQBusyId] = useState<string | null>(null);
   const editRef = useRef<HTMLFormElement | null>(null);
   const fhirRef = useRef<HTMLPreElement | null>(null);
@@ -128,10 +139,15 @@ export default function PolicyPage() {
         setItems([]);
       }
       try {
-        const q = await api<{ questionnaires: typeof questionnaires }>(`/policies/${params.id}/questionnaires`);
+        const q = await api<{
+          questionnaires: typeof questionnaires;
+          hallucination_examples?: typeof hallucinationExamples;
+        }>(`/policies/${params.id}/questionnaires`);
         setQuestionnaires(q.questionnaires || []);
+        setHallucinationExamples(q.hallucination_examples || []);
       } catch {
         setQuestionnaires([]);
+        setHallucinationExamples([]);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load this policy");
@@ -273,12 +289,12 @@ export default function PolicyPage() {
       const stillUndecided = items.some(needsDecision);
       if (statusNow !== "live") {
         if (stillUndecided) {
-          setError("Accept, edit, or reject every row in All before confirming questionnaires.");
+          setError("Accept, edit, or reject every row in All before Go live.");
           setFilter("all");
           return;
         }
         const ok = window.confirm(
-          "Activate this policy? It will be used for all new PA rule lookups.",
+          "Make this policy live? Accepted rows enter the order catalog. Clinicians then Run coverage check on a patient order to open the questionnaire.",
         );
         if (!ok) return;
         await api(`/policies/${params.id}/go-live`, {
@@ -288,19 +304,9 @@ export default function PolicyPage() {
         setJustWentLive(true);
         await load();
       }
-      const idBlock = (policy?.identity as Record<string, { value?: string }> | undefined) || {};
-      const insurer = String(idBlock.insurer?.value || policy?.insurer || "");
-      const plan_name = String(idBlock.plan_name?.value || policy?.plan_name || "");
-      const plan_year = String(idBlock.plan_year?.value || policy?.plan_year || "");
-      const q = new URLSearchParams({
-        from_policy: params.id,
-        insurer,
-        plan_name,
-        plan_year,
-      });
-      router.push(`/doctor?${q.toString()}`);
+      // Stay on the policy page — doctor questionnaires open from Run coverage, not from admin submit.
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not confirm questionnaires");
+      setError(err instanceof Error ? err.message : "Could not go live");
     } finally {
       setSubmitBusy(false);
     }
@@ -581,12 +587,13 @@ export default function PolicyPage() {
           <p className="title">This document is live</p>
           <p className="muted">
             Go live publishes accepted and edited rows into the order catalog. Rejected rows stay out.
-            Clinicians open an order and submit a packet; the insurer queue reviews questionnaires, may ask for more evidence, then approve.
-            You can take it offline later without losing extracted rules.
+            Clinicians upload a patient report (or pick a patient), then press <strong>Run coverage check</strong> —
+            the clinical questionnaire opens on that order. The insurer queue reviews the packet after submit.
           </p>
           <div className="row" style={{ marginTop: 10 }}>
-            <Link className="btn" href="/insurer">Open insurer review</Link>
-            <Link className="btn secondary" href="/doctor">Open clinician order</Link>
+            <Link className="btn" href="/doctor/upload">Open clinician upload</Link>
+            <Link className="btn secondary" href="/doctor">Open order desk</Link>
+            <Link className="btn secondary" href="/insurer">Open insurer review</Link>
             <button type="button" className="btn secondary" onClick={takeOfflineWithConfirm}>
               Take offline
             </button>
@@ -669,11 +676,11 @@ export default function PolicyPage() {
         )}
       </section>
 
-      {!extracting && (isLive || isArchived || questionnaires.length > 0) && (
+      {!extracting && (isLive || isArchived || questionnaires.length > 0 || hallucinationExamples.length > 0) && (
         <section className="card" style={{ marginTop: 12 }}>
           <p className="title">Generated questionnaires</p>
           <p className="muted">
-            Delete is only available when no QuestionnaireResponse has been submitted. Regenerate builds a fresh questionnaire from the live policy rules (demo-safe).
+            Delete is only available when no QuestionnaireResponse has been submitted. Regenerate builds a fresh questionnaire from the live policy rules (demo-safe). Live questionnaires only include grounded ACCURATE rows — hallucinated extracts stay out.
           </p>
           {questionnaires.length === 0 && (
             <p className="muted" style={{ marginTop: 8 }}>
@@ -725,6 +732,42 @@ export default function PolicyPage() {
               </div>
             </div>
           ))}
+
+          {hallucinationExamples.length > 0 && (
+            <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid #e2e8f0" }}>
+              <p className="title" style={{ fontSize: 15 }}>
+                Judge flagged as hallucinated <span className="muted">({hallucinationExamples.length} examples)</span>
+              </p>
+              <p className="muted" style={{ marginTop: 4 }}>
+                Not 100% sure — these extracts failed the page judge. They are kept out of generated questionnaires and the live catalog.
+              </p>
+              <div className="stack" style={{ marginTop: 10 }}>
+                {hallucinationExamples.map((ex) => (
+                  <article key={ex.id} className="card needs-look" style={{ marginTop: 0 }}>
+                    <div className="row" style={{ flexWrap: "wrap", gap: 6 }}>
+                      <ConfidenceBadge sure={false} />
+                      <JudgeBadge verdict={ex.judge_verdict || "HALLUCINATED"} />
+                      {ex.review_state && <StatusBadge status={ex.review_state} />}
+                      {ex.page != null && <span className="muted">p.{ex.page}</span>}
+                    </div>
+                    <p className="title" style={{ marginTop: 8, fontSize: 14 }}>{ex.title}</p>
+                    {ex.evidence_text && (
+                      <p className="quote" style={{ marginTop: 6 }}>
+                        {String(ex.evidence_text).slice(0, 220)}
+                        {String(ex.evidence_text).length > 220 ? "…" : ""}
+                      </p>
+                    )}
+                    {ex.judge_reason && (
+                      <p className="muted" style={{ marginTop: 6 }}>{ex.judge_reason}</p>
+                    )}
+                    <p className="muted" style={{ marginTop: 4 }}>
+                      Excluded from generated questionnaires.
+                    </p>
+                  </article>
+                ))}
+              </div>
+            </div>
+          )}
         </section>
       )}
       {(fhir || extractJson) && (
@@ -836,26 +879,39 @@ export default function PolicyPage() {
           {items.length > 0 && visible.length === 0 && filter !== "needs" && <p className="muted">No rows in this tab.</p>}
           {filter === "all" && items.length > 0 && (
             <section className="card" style={{ marginTop: 8, borderColor: undecided ? undefined : "#c9a227" }}>
-              <p className="title">Confirm questionnaires</p>
+              <p className="title">{isLive ? "Policy is live" : "Make live"}</p>
               <p className="muted">
-                Review every row above. When they look right, submit to publish them (if not already live) and open the doctor order screen to fill the clinical questionnaire for a patient.
+                {isLive
+                  ? "This plan is in the clinician catalog. Open Order Desk, run coverage on a patient order, and the questionnaire appears there — no separate admin submit step."
+                  : "Finish accepting or rejecting every row above, then make the policy live. After that, clinicians open questionnaires by running coverage check on a patient order."}
               </p>
               <p className="muted" style={{ marginTop: 6 }}>
                 {undecided
                   ? `${counts.needs} row(s) still need Accept / Edit / Reject.`
-                  : `${items.filter((i) => i.review_state !== "rejected").length} questionnaire/coverage rows ready for clinicians.`}
+                  : `${items.filter((i) => i.review_state !== "rejected").length} coverage/rule rows ready for the live catalog.`}
               </p>
-              <button
-                type="button"
-                className="btn"
-                style={{ marginTop: 10 }}
-                disabled={submitBusy || extracting || undecided}
-                onClick={confirmQuestionnairesAndOpenDoctor}
-              >
-                {submitBusy ? "Submitting..." : isLive ? "Submit and open doctor questionnaires" : "Submit questionnaires and open doctor"}
-              </button>
+              {!isLive ? (
+                <button
+                  type="button"
+                  className="btn"
+                  style={{ marginTop: 10 }}
+                  disabled={submitBusy || extracting || undecided}
+                  onClick={confirmQuestionnairesAndOpenDoctor}
+                >
+                  {submitBusy ? "Going live…" : "Go live"}
+                </button>
+              ) : (
+                <div className="row" style={{ marginTop: 10 }}>
+                  <Link className="btn" href="/doctor/upload">
+                    Run Live
+                  </Link>
+                  <Link className="btn secondary" href="/doctor">
+                    Order desk
+                  </Link>
+                </div>
+              )}
               {undecided && (
-                <p className="muted" style={{ marginTop: 8 }}>Finish Needs review (or decide each row in All) before submit unlocks.</p>
+                <p className="muted" style={{ marginTop: 8 }}>Finish Needs review (or decide each row in All) before Go live unlocks.</p>
               )}
             </section>
           )}

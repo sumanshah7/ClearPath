@@ -206,6 +206,51 @@ def go_live(policy_id: str, reviewer: str, *, block_id: str | None = None) -> di
     return updated
 
 
+def reset_review_queue_for_demo(*, actor: str = "doctor_logout") -> dict:
+    """HITL demo: put Gate-1 review rows back to pending_review on doctor logout.
+
+    Does not change policy live/archived status, PARequest history, questionnaires,
+    or insurer decisions. Leaves mass auto-rejected EOC fragments (no listing_index)
+    rejected so the queue stays ~listing-sized rather than hundreds of junk rows.
+    """
+    repo = get_repo()
+    reset_count = 0
+    policies_touched: list[str] = []
+    for policy in repo.list_policies(include_drafts=True):
+        policy_id = policy["id"]
+        touched = False
+        for item in repo.items_for(policy_id):
+            state = item.get("review_state") or ""
+            # Only Gate-1 open-queue rows (accepted / edited / pending / auto). Do not
+            # resurrect mass auto-rejected EOC fragments or session rejects that were
+            # already removed from the work queue — keeps Needs review near listing size.
+            if state not in {"accepted", "edited", "pending_review", "auto_approved"}:
+                continue
+            already_clean = (
+                state == "pending_review"
+                and not item.get("reviewed_by")
+                and not item.get("edited_by_human")
+            )
+            if already_clean:
+                continue
+            repo.write_item(
+                item["id"],
+                {
+                    "review_state": "pending_review",
+                    "reviewed_by": None,
+                    "reviewed_at": None,
+                    "review_note": "Reset on doctor logout (HITL demo)",
+                    "edited_by_human": 0,
+                },
+                actor=actor,
+            )
+            reset_count += 1
+            touched = True
+        if touched:
+            policies_touched.append(policy_id)
+    return {"ok": True, "reset_count": reset_count, "policies": policies_touched}
+
+
 def take_offline(policy_id: str, reviewer: str, *, block_id: str | None = None) -> dict:
     """live -> archived. Keeps extracted rules, FHIR blobs, and past PA decisions."""
     repo = get_repo()
@@ -561,7 +606,7 @@ def _refresh_plan_memory(policy: dict) -> None:
     items = [
         item["data"]
         for item in repo.items_for(policy["id"])
-        if item["review_state"] in {"accepted", "edited"}
+        if item["review_state"] != "rejected"
     ]
     memory = {"items": items, "policy_id": policy["id"]}
     existing = repo._one(

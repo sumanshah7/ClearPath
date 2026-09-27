@@ -25,15 +25,20 @@
     "effective_date": "2026-01-01"
   },
   "suggested_order": {
-    "order_text": "CT brain without contrast",
-    "service_code": "70450",
-    "service_category": "CT brain without contrast",
+    "order_text": "Outpatient diagnostic tests",
+    "service_code": "",
+    "service_category": "Outpatient diagnostic tests",
     "pa_required": true,
     "pa_status": "required",
-    "icd10_codes": ["R51.9"]
+    "icd10_codes": [
+      "R51.9"
+    ]
   },
   "diagnoses": [
-    { "code": "R51.9", "display": "Headache, unspecified" }
+    {
+      "code": "R51.9",
+      "display": "Headache, unspecified"
+    }
   ],
   "synthetic": true,
   "demo_set": "uhc-patients",

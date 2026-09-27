@@ -42,95 +42,34 @@
     "network": "Community",
     "demo_services": [
       {
-        "label": "Outpatient diagnostic tests - imaging",
-        "codes": [
-          "72148"
-        ],
+        "label": "Outpatient diagnostic tests",
+        "codes": [],
         "pa_status": "required"
       },
       {
-        "label": "MRI lumbar spine without contrast",
-        "codes": [
-          "72148"
-        ],
+        "label": "Outpatient diagnostic tests - X-rays",
+        "codes": [],
         "pa_status": "required"
       },
       {
-        "label": "MRI cervical spine without contrast",
-        "codes": [
-          "72141"
-        ],
+        "label": "Chiropractic services",
+        "codes": [],
         "pa_status": "required"
       },
       {
-        "label": "MRI brain without contrast",
-        "codes": [
-          "70551"
-        ],
-        "pa_status": "required"
-      },
-      {
-        "label": "MRI thoracic spine without contrast",
-        "codes": [
-          "72146"
-        ],
-        "pa_status": "required"
-      },
-      {
-        "label": "CT lumbar spine without contrast",
-        "codes": [
-          "72131"
-        ],
-        "pa_status": "required"
-      },
-      {
-        "label": "CT brain without contrast",
-        "codes": [
-          "70450"
-        ],
-        "pa_status": "required"
-      },
-      {
-        "label": "X-ray spine",
-        "codes": [
-          "72100"
-        ],
+        "label": "Annual wellness visit",
+        "codes": [],
         "pa_status": "not_required"
       },
       {
-        "label": "X-ray lumbar spine 2 or 3 views",
-        "codes": [
-          "72100"
-        ],
-        "pa_status": "not_required"
-      },
-      {
-        "label": "X-ray chest 2 views",
-        "codes": [
-          "71046"
-        ],
-        "pa_status": "not_required"
-      },
-      {
-        "label": "Physical therapy evaluation",
-        "codes": [
-          "97161"
-        ],
+        "label": "Ambulance services",
+        "codes": [],
         "pa_status": "conditional"
       },
       {
-        "label": "Office visit - established patient",
-        "codes": [
-          "99213"
-        ],
-        "pa_status": "not_required"
-      },
-      {
-        "label": "Office visit - new patient",
-        "codes": [
-          "99203"
-        ],
-        "pa_status": "not_required"
+        "label": "Outpatient rehabilitation services",
+        "codes": [],
+        "pa_status": "required"
       }
     ],
     "synthetic": true

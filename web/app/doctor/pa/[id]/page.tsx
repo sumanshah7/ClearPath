@@ -314,24 +314,42 @@ export default function ChecklistPage() {
         </section>
       )}
       {view.status === "info_requested" && (
-        <p className="card" style={{ marginTop: 12, borderColor: "#c9a227" }}>
-          The insurer asked for more information. Add evidence, answer the new question, verify, and send the packet again.
-        </p>
+        <section className="card" style={{ marginTop: 12, borderColor: "#c9a227" }}>
+          <p className="kicker">Insurer decision</p>
+          <p className="title">Additional information requested</p>
+          <p className="muted" style={{ marginTop: 6 }}>
+            The payer desk asked for more evidence. Add documentation below, verify, and resubmit. Status updates live from the same request record.
+          </p>
+        </section>
       )}
       {view.status === "approved" && (
-        <p className="badge green" style={{ marginTop: 12 }}>
-          Approved by the insurer. The decision is on this timeline and in the patient chart export (`prior_authorizations`).
-        </p>
+        <section className="card feature" style={{ marginTop: 12 }}>
+          <p className="kicker">Insurer decision</p>
+          <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div>
+              <p className="title">Approved</p>
+              <p className="muted" style={{ marginTop: 6 }}>
+                Recorded on the insurer queue. This checklist and{" "}
+                <Link href="/doctor/requests">Request status</Link> stay in sync with that decision.
+              </p>
+            </div>
+            <StatusBadge status="approved" />
+          </div>
+        </section>
       )}
       {view.status === "in_review" && (
         <p className="badge blue" style={{ marginTop: 12 }}>
           With the insurer queue. Waiting for approve or an information request.{" "}
           <Link href={`/insurer/pa/${view.id}`}>Open insurer view</Link>
+          {" · "}
+          <Link href="/doctor/requests">Request status</Link>
         </p>
       )}
       {view.status === "submitted" && (
         <p className="badge blue" style={{ marginTop: 12 }}>
-          Submitted. Moving to insurer review.{" "}
+          Submitted. Waiting for an insurer decision — this page polls automatically.{" "}
+          <Link href="/doctor/requests">Request status</Link>
+          {" · "}
           <Link href="/insurer">Open insurer queue</Link>
         </p>
       )}
@@ -363,9 +381,14 @@ export default function ChecklistPage() {
       {view.criteria.length === 0 && view.status !== "draft" && view.status !== "matching" && view.status !== "not_required" && (
         <p className="muted" style={{ marginTop: 12 }}>No questionnaire items yet for this order.</p>
       )}
+      {view.criteria.length > 0 && view.status !== "draft" && view.status !== "not_required" && (
+        <p className="badge green" style={{ marginTop: 12 }}>
+          Questionnaire ready — answer each rule below, verify when met, then submit the packet to the insurer.
+        </p>
+      )}
       {view.criteria.length === 0 && (view.status === "needs_info" || view.status === "ready_for_review") && (
         <p className="card" style={{ marginTop: 12 }}>
-          Questionnaire questions show as cards below once criteria are built. Use Upload to add chart documents, then Recheck.
+          No clinical questions were built for this service yet. Upload chart evidence and Recheck, or confirm the plan service label matches a live coverage row.
         </p>
       )}
       {view.status === "not_required" ? (

@@ -24,20 +24,21 @@ def _prepare_vercel_writable_paths() -> None:
     """SQLite and uploads need a writable filesystem; Vercel only allows /tmp."""
     if os.environ.get("VERCEL") != "1":
         return
-    bundled = Path(
-        os.environ.get(
-            "DATABASE_PATH",
-            str(PA_ENGINE_ROOT / "data" / "clearpath.db"),
-        )
-    )
+    bundled = Path(str(PA_ENGINE_ROOT / "data" / "clearpath.db"))
     if not bundled.exists():
         alt = ROOT / "data" / "clearpath.db"
         if alt.exists():
             bundled = alt
+    # Ignore env DATABASE_PATH pointing at /var/task until after we stage into /tmp.
     tmp_db = Path("/tmp/clearpath.db")
-    if bundled.exists() and not tmp_db.exists():
-        shutil.copy2(bundled, tmp_db)
-        log.warning("Copied SQLite seed to %s (%s bytes)", tmp_db, tmp_db.stat().st_size)
+    seed_marker = Path("/tmp/clearpath.db.seed-bytes")
+    if bundled.exists():
+        seed_bytes = str(bundled.stat().st_size)
+        need_copy = (not tmp_db.exists()) or (not seed_marker.exists()) or seed_marker.read_text() != seed_bytes
+        if need_copy:
+            shutil.copy2(bundled, tmp_db)
+            seed_marker.write_text(seed_bytes)
+            log.warning("Staged SQLite seed to %s (%s bytes)", tmp_db, tmp_db.stat().st_size)
     os.environ["DATABASE_PATH"] = str(tmp_db if tmp_db.exists() else bundled)
     storage = Path("/tmp/clearpath-storage")
     storage.mkdir(parents=True, exist_ok=True)

@@ -2,13 +2,29 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Body
 
 from app.repository import get_repo, new_id
 from app.review.present import present_item
-from app.review.review import accept, apply_suggestion, edit, go_live, queue, reject, take_offline
+from app.review.review import (
+    accept,
+    apply_suggestion,
+    edit,
+    go_live,
+    queue,
+    reject,
+    reset_review_queue_for_demo,
+    take_offline,
+)
 
 router = APIRouter(prefix="/policies")
+
+
+@router.post("/reset-review-queue")
+def reset_review_queue(body: dict = Body(default={})):
+    """Doctor-logout HITL demo: reset Gate-1 review_state only (not live/PA history)."""
+    actor = body.get("actor") or "doctor_logout"
+    return reset_review_queue_for_demo(actor=str(actor))
 
 
 @router.get("/{policy_id}/review-queue")

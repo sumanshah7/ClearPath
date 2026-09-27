@@ -389,7 +389,56 @@ def list_policy_questionnaires(policy_id: str) -> dict:
         "policy_status": policy.get("status"),
         "embedded_questionnaire": bool(embedded),
         "questionnaires": rows,
+        "hallucination_examples": _hallucination_examples(policy_id, limit=5),
     }
+
+
+def _hallucination_examples(policy_id: str, *, limit: int = 8) -> list[dict]:
+    """Sample extract rows the judge marked HALLUCINATED (kept out of live questionnaires).
+
+    Prefers real judge reasons over mass auto-reject notes so the admin UI can show
+    that Gate-1 is not 'all 100% sure'.
+    """
+    repo = get_repo()
+    items = [
+        item
+        for item in repo.items_for(policy_id)
+        if (item.get("judge_verdict") or "") == "HALLUCINATED"
+    ]
+    real = [i for i in items if not str(i.get("judge_reason") or "").startswith("Auto-rejected")]
+    auto = [i for i in items if str(i.get("judge_reason") or "").startswith("Auto-rejected")]
+    ordered = real + auto
+    examples: list[dict] = []
+    seen_labels: set[str] = set()
+    for item in ordered:
+        data = item.get("data") or {}
+        label = (
+            data.get("service_label")
+            or data.get("requirement_text")
+            or item.get("service_label")
+            or "Extracted row"
+        )
+        label = " ".join(str(label).split())
+        key = label[:80].lower()
+        if key in seen_labels:
+            continue
+        seen_labels.add(key)
+        examples.append(
+            {
+                "id": item["id"],
+                "title": label,
+                "page": item.get("page"),
+                "review_state": item.get("review_state"),
+                "judge_verdict": item.get("judge_verdict"),
+                "judge_reason": item.get("judge_reason"),
+                "evidence_text": data.get("evidence_text") or data.get("requirement_text"),
+                "grounding": item.get("grounding"),
+                "excluded_from_questionnaire": True,
+            }
+        )
+        if len(examples) >= limit:
+            break
+    return examples
 
 
 def delete_questionnaire(policy_id: str, questionnaire_id: str) -> dict:
@@ -437,10 +486,10 @@ def regenerate_questionnaire(policy_id: str, questionnaire_id: str, *, reviewer:
     items = [
         i
         for i in repo.items_for(policy_id)
-        if i["review_state"] in {"accepted", "edited"} and i["item_type"] == "rule"
+        if i["review_state"] != "rejected" and i["item_type"] == "rule"
     ]
     if not items:
-        raise ApiError("ITEMS_UNDECIDED", "No accepted rules to build a questionnaire from.", 409)
+        raise ApiError("ITEMS_UNDECIDED", "No live rules to build a questionnaire from.", 409)
     resource = build_q(policy, items, status="active")
     resource["id"] = new_id()
     errors = validate_resource(resource)
@@ -577,7 +626,7 @@ def _snapshot_questionnaire(pa_id: str) -> dict:
             return stored["resource"]
 
     policy = repo.get_policy(pa["criteria_policy_id"]) if pa.get("criteria_policy_id") else None
-    items = []
+    items: list[dict] = []
     if policy:
         items = [i for i in repo.items_for(policy["id"]) if i["review_state"] != "rejected" and i["item_type"] == "rule"]
         # Prefer order-scoped: only items tied to current criteria keys.
@@ -585,8 +634,9 @@ def _snapshot_questionnaire(pa_id: str) -> dict:
         scoped = [i for i in items if (i.get("data") or {}).get("criterion_key") in keys]
         if scoped:
             items = scoped
-    if not policy:
-        # Synthetic questionnaire from current criteria questions.
+    # EOC coverage-only PAs (listing rows) have no clinical rule items — build from
+    # the order's criteria questions so Run coverage immediately surfaces a questionnaire.
+    if not policy or not items:
         resource = _questionnaire_from_criteria(pa)
     else:
         resource = build_q(policy, items, status="active")
@@ -601,6 +651,8 @@ def _snapshot_questionnaire(pa_id: str) -> dict:
                 "valueString": pa.get("service_category") or pa.get("order_text") or "",
             },
         ]
+        if not (resource.get("item") or []):
+            resource = _questionnaire_from_criteria(pa)
 
     stored = repo.save_fhir_questionnaire(
         {
@@ -887,6 +939,27 @@ def _check(pa, payload, run_id, recorder, preset=None) -> dict:
             repo.update_pa(pa["id"], {"status": "matching", "match_candidates": suggestions})
             recorder.record("match", "No exact match; clinician chooses from coverage suggestions.")
             repo.add_event(pa["id"], "matched", "Choose the benefit row that matches this order", "engine")
+            return present(pa["id"])
+        live_coverage = repo.live_items_for_plan(
+            insurer=insurer, plan_name=plan_name, plan_year=plan_year, item_type="coverage"
+        )
+        if live_coverage:
+            # Plan is live — the ordered wording just is not a catalog label.
+            fallback = [
+                service_matcher._candidate(item)
+                for item in live_coverage[:12]
+            ]
+            repo.update_pa(pa["id"], {"status": "matching", "match_candidates": fallback})
+            recorder.record(
+                "match",
+                "Order text is not a catalog label; clinician picks a live benefit row.",
+            )
+            repo.add_event(
+                pa["id"],
+                "matched",
+                f"No row labeled “{payload.get('order_text') or ''}”. Pick the matching live benefit.",
+                "engine",
+            )
             return present(pa["id"])
         raise ApiError(
             "POLICY_NOT_FOUND",

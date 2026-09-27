@@ -841,12 +841,17 @@ class Repository:
         )
 
     def live_items(self, item_type: str | None = None) -> list[dict]:
+        # While a policy is live, keep non-rejected rows in the catalog even if HITL
+        # demo reset moved them back to pending_review / auto_approved.
+        # HALLUCINATED rows may stay open in the Review queue for human look, but
+        # they must not drive clinician questionnaires or order matching.
         sql = """
         select i.* from policy_items i
         join policies p on p.id = i.policy_id
         left join policy_blocks b on b.id = i.block_id
         where p.status = 'live'
-          and i.review_state in ('accepted','edited')
+          and i.review_state != 'rejected'
+          and (i.judge_verdict is null or i.judge_verdict != 'HALLUCINATED')
           and (i.block_id is null or b.status = 'live')
         """
         if item_type:

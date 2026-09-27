@@ -25,15 +25,20 @@
     "effective_date": "2026-01-01"
   },
   "suggested_order": {
-    "order_text": "CT lumbar spine without contrast",
-    "service_code": "72131",
-    "service_category": "Outpatient diagnostic tests - imaging",
+    "order_text": "Outpatient diagnostic tests",
+    "service_code": "",
+    "service_category": "Outpatient diagnostic tests",
     "pa_required": true,
     "pa_status": "required",
-    "icd10_codes": ["M48.06"]
+    "icd10_codes": [
+      "M51.16"
+    ]
   },
   "diagnoses": [
-    { "code": "M48.06", "display": "Spinal stenosis, lumbar region" }
+    {
+      "code": "M48.06",
+      "display": "Spinal stenosis, lumbar region"
+    }
   ],
   "synthetic": true,
   "demo_set": "uhc-patients",

@@ -217,8 +217,18 @@ export default function OrderPage() {
     if (insurer && i !== insurer) return null;
     return plans.find((p) => p.insurer === i && p.plan_name === n && p.plan_year === y) || null;
   }, [plans, planKey, insurer]);
-  /** Demo-only plans are not backed by a live PolicyLibrary row. */
-  const noActivePolicyForPlan = Boolean(selectedPlan?.demo);  const servicesForPlan = useMemo(() => {
+  /** Demo-only plans block Run coverage unless live engine services exist for that plan. */
+  const noActivePolicyForPlan = Boolean(
+    selectedPlan?.demo &&
+      !services.some(
+        (s) =>
+          !s.demo &&
+          s.insurer === selectedPlan.insurer &&
+          s.plan_name === selectedPlan.plan_name &&
+          yearsMatch(s.plan_year, selectedPlan.plan_year),
+      ),
+  );
+  const servicesForPlan = useMemo(() => {
     if (!selectedPlan) return [];
     return services.filter(
       (s) =>

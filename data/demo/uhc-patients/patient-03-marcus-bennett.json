@@ -25,15 +25,20 @@
     "effective_date": "2026-01-01"
   },
   "suggested_order": {
-    "order_text": "MRI cervical spine without contrast",
-    "service_code": "72141",
-    "service_category": "Outpatient diagnostic tests - imaging",
+    "order_text": "Chiropractic services",
+    "service_code": "",
+    "service_category": "Chiropractic services",
     "pa_required": true,
     "pa_status": "required",
-    "icd10_codes": ["M54.12"]
+    "icd10_codes": [
+      "M54.12"
+    ]
   },
   "diagnoses": [
-    { "code": "M54.12", "display": "Radiculopathy, cervical region" }
+    {
+      "code": "M54.12",
+      "display": "Radiculopathy, cervical region"
+    }
   ],
   "synthetic": true,
   "demo_set": "uhc-patients",

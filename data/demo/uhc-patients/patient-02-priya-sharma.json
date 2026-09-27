@@ -25,15 +25,20 @@
     "effective_date": "2026-01-01"
   },
   "suggested_order": {
-    "order_text": "X-ray lumbar spine 2 or 3 views",
-    "service_code": "72100",
-    "service_category": "X-ray spine",
-    "pa_required": false,
-    "pa_status": "not_required",
-    "icd10_codes": ["M54.5"]
+    "order_text": "Outpatient diagnostic tests - X-rays",
+    "service_code": "",
+    "service_category": "Outpatient diagnostic tests - X-rays",
+    "pa_required": true,
+    "pa_status": "required",
+    "icd10_codes": [
+      "M54.5"
+    ]
   },
   "diagnoses": [
-    { "code": "M54.5", "display": "Low back pain" }
+    {
+      "code": "M54.5",
+      "display": "Low back pain"
+    }
   ],
   "synthetic": true,
   "demo_set": "uhc-patients",

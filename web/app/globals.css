@@ -1297,6 +1297,94 @@ th {
 }
 tr.row-working td { background: #e8f5f2; }
 
+/* ——— Doctor upload page ——— */
+.upload-page {
+  max-width: 64rem;
+}
+.upload-clinician-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 0.9rem 1.15rem;
+}
+.upload-clinician-name {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 0.1rem 0 0.15rem;
+  color: var(--ink);
+}
+.upload-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(16rem, 0.85fr);
+  gap: 1rem;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .upload-layout {
+    grid-template-columns: 1fr;
+  }
+  .upload-clinician-bar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+.upload-primary {
+  margin: 0;
+}
+.upload-demo-card {
+  margin: 0;
+  background: #fbfcfd;
+}
+.demo-report-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.demo-report-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+}
+.demo-report-list a {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+  text-decoration: none;
+  color: inherit;
+  flex: 1;
+}
+.demo-report-list a:hover .demo-report-name {
+  color: var(--brand);
+}
+.demo-report-name {
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: var(--ink);
+}
+.demo-report-service {
+  font-size: 0.78rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.file-drop.has-file {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+}
+
 /* legacy aliases */
 .shell { width: 100%; }
 .nav { display: none; }

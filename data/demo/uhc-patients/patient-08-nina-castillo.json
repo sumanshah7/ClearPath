@@ -25,15 +25,20 @@
     "effective_date": "2026-01-01"
   },
   "suggested_order": {
-    "order_text": "MRI brain without contrast",
-    "service_code": "70551",
-    "service_category": "MRI brain without contrast",
+    "order_text": "Outpatient rehabilitation services",
+    "service_code": "",
+    "service_category": "Outpatient rehabilitation services",
     "pa_required": true,
     "pa_status": "required",
-    "icd10_codes": ["G43.909"]
+    "icd10_codes": [
+      "M54.16"
+    ]
   },
   "diagnoses": [
-    { "code": "G43.909", "display": "Migraine, unspecified, not intractable, without status migrainosus" }
+    {
+      "code": "G43.909",
+      "display": "Migraine, unspecified, not intractable, without status migrainosus"
+    }
   ],
   "synthetic": true,
   "demo_set": "uhc-patients",

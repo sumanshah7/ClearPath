@@ -51,3 +51,4 @@ tmp/
 temp/
 .vercel
 .env*
+demo-patient-reports/

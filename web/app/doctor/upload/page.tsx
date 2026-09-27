@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { useDoctorAuth } from "@/components/pa/DoctorAuthProvider";
-import { DoctorProfileCard } from "@/components/pa/DoctorProfileCard";
 
 type UploadResult = {
   upload_id: string;
@@ -18,6 +17,56 @@ type UploadResult = {
     source_upload_id: string;
   };
 };
+
+const DEMO_REPORTS: {
+  href: string;
+  name: string;
+  service: string;
+  pa: "required" | "conditional" | "not_required";
+}[] = [
+  {
+    href: "/demo/uhc-reports/01-robert-nguyen-outpatient-diagnostic-tests.pdf",
+    name: "Robert Nguyen",
+    service: "Outpatient diagnostic tests",
+    pa: "required",
+  },
+  {
+    href: "/demo/uhc-reports/02-priya-sharma-outpatient-diagnostic-tests-xrays.pdf",
+    name: "Priya Sharma",
+    service: "Outpatient diagnostic tests - X-rays",
+    pa: "required",
+  },
+  {
+    href: "/demo/uhc-reports/03-marcus-bennett-chiropractic-services.pdf",
+    name: "Marcus Bennett",
+    service: "Chiropractic services",
+    pa: "required",
+  },
+  {
+    href: "/demo/uhc-reports/04-helen-park-annual-wellness-visit.pdf",
+    name: "Helen Park",
+    service: "Annual wellness visit",
+    pa: "not_required",
+  },
+  {
+    href: "/demo/uhc-reports/05-linda-okonkwo-ambulance-services.pdf",
+    name: "Linda Okonkwo",
+    service: "Ambulance services",
+    pa: "conditional",
+  },
+  {
+    href: "/demo/uhc-reports/06-nina-castillo-outpatient-rehabilitation.pdf",
+    name: "Nina Castillo",
+    service: "Outpatient rehabilitation services",
+    pa: "required",
+  },
+];
+
+function paBadge(pa: "required" | "conditional" | "not_required") {
+  if (pa === "required") return <span className="badge amber">PA required</span>;
+  if (pa === "conditional") return <span className="badge blue">Conditional</span>;
+  return <span className="badge gray">No PA</span>;
+}
 
 export default function DoctorUploadPage() {
   const router = useRouter();
@@ -51,91 +100,128 @@ export default function DoctorUploadPage() {
   }
 
   return (
-    <main>
+    <main className="upload-page">
       <header className="page-head">
-        <p className="kicker">Order desk</p>
+        <p className="kicker">Clinician</p>
         <h1 className="title">Upload patient report</h1>
         <p className="lead">
-          You are signed in. Review your profile, then drop a clinical PDF or report. ClearPath extracts what it can
-          and opens the Order Desk.
+          Drop a clinical PDF. ClearPath extracts the patient and order, then opens the Order Desk so you can run
+          coverage.
         </p>
       </header>
 
-      <DoctorProfileCard doctor={doctor} onLogout={logout} />
-
-      {error && <p className="badge amber">{error}</p>}
-
-      <section className="card" style={{ maxWidth: "36rem", marginBottom: "1rem" }}>
-        <h2 className="section-title" style={{ marginTop: 0 }}>
-          Demo UHC reports (synthetic)
-        </h2>
-        <p className="muted" style={{ marginBottom: "0.75rem" }}>
-          Download a sample Dual Complete OH-S3 chart, then upload it below. Not real PHI.
-        </p>
-        <ul className="plain-list" style={{ margin: 0, paddingLeft: "1.1rem", lineHeight: 1.55 }}>
-          <li>
-            <a href="/demo/uhc-reports/patient-01-robert-nguyen-72148-report.pdf">Robert Nguyen</a> — MRI lumbar (72148) · PA required
-          </li>
-          <li>
-            <a href="/demo/uhc-reports/patient-02-priya-sharma-72100-report.pdf">Priya Sharma</a> — X-ray lumbar (72100) · no PA
-          </li>
-          <li>
-            <a href="/demo/uhc-reports/patient-03-marcus-bennett-72141-report.pdf">Marcus Bennett</a> — MRI cervical (72141) · PA required
-          </li>
-          <li>
-            <a href="/demo/uhc-reports/patient-04-linda-okonkwo-97161-report.pdf">Linda Okonkwo</a> — PT evaluation (97161) · conditional
-          </li>
-          <li>
-            <a href="/demo/uhc-reports/patient-06-helen-park-99213-report.pdf">Helen Park</a> — Office visit (99213) · no PA
-          </li>
-          <li>
-            <a href="/demo/uhc-reports/patient-08-nina-castillo-70551-report.pdf">Nina Castillo</a> — MRI brain (70551) · PA required
-          </li>
-        </ul>
+      <section className="card upload-clinician-bar">
+        <div>
+          <p className="kicker-sm">Signed in</p>
+          <p className="upload-clinician-name">{doctor.full_name}</p>
+          <p className="muted" style={{ margin: 0 }}>
+            {[doctor.specialty, doctor.credentials, doctor.npi ? `NPI ${doctor.npi}` : null]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+        </div>
+        <div className="row" style={{ gap: "0.5rem" }}>
+          <Link className="btn secondary" href="/doctor">
+            Order desk
+          </Link>
+          {logout && (
+            <button type="button" className="btn secondary" onClick={logout}>
+              Sign out
+            </button>
+          )}
+        </div>
       </section>
 
-      <form className="card form-card" onSubmit={onSubmit} style={{ maxWidth: "36rem" }}>
-        <label className="field">
-          Ordering clinician
-          <input value={`${doctor.full_name}${doctor.specialty ? ` | ${doctor.specialty}` : ""}`} disabled readOnly />
-        </label>
-        <label className="field">
-          Patient report
-          <span className="file-drop">
-            <span className="file-drop-icon" aria-hidden>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 16V7" />
-                <path d="M8.5 10.5 12 7l3.5 3.5" />
-                <path d="M5 17.5v1A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5v-1" />
-              </svg>
-            </span>
-            <span className="file-drop-copy">
-              <strong>{file ? "Change file" : "Choose a file"}</strong>
-              <span>{file ? file.name : "PDF, image, or scanned report"}</span>
-            </span>
-            <input
-              type="file"
-              accept="application/pdf,image/*,.txt,.png,.jpg,.jpeg"
-              required
-              onChange={(e) => setFile(e.target.files?.[0] || null)}
-            />
-          </span>
-        </label>
-        <div className="row">
-          <button className="btn" disabled={busy || !file}>
-            {busy ? "Extracting..." : "Extract and open Order Desk"}
-          </button>
-          <Link className="btn secondary" href="/doctor">
-            Skip to Order Desk
-          </Link>
-        </div>
-      </form>
-
-      {result && (
-        <p className="badge green" style={{ marginTop: "1rem" }}>
-          Extraction {result.extraction_status}. Opening Order Desk...
+      {error && (
+        <p className="badge amber" style={{ marginBottom: "1rem" }}>
+          {error}
         </p>
       )}
+
+      <div className="upload-layout">
+        <form className="card form-card upload-primary" onSubmit={onSubmit}>
+          <p className="kicker-sm">Step 1</p>
+          <h2 className="title" style={{ marginBottom: "0.35rem" }}>
+            Choose a report
+          </h2>
+          <p className="muted" style={{ marginTop: 0, marginBottom: "1rem" }}>
+            PDF preferred. Images and plain text also work.
+          </p>
+
+          <label className="field">
+            Ordering clinician
+            <input
+              value={`${doctor.full_name}${doctor.specialty ? ` · ${doctor.specialty}` : ""}`}
+              disabled
+              readOnly
+            />
+          </label>
+
+          <label className="field">
+            Patient report
+            <span className={`file-drop${file ? " has-file" : ""}`}>
+              <span className="file-drop-icon" aria-hidden>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 16V7" />
+                  <path d="M8.5 10.5 12 7l3.5 3.5" />
+                  <path d="M5 17.5v1A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5v-1" />
+                </svg>
+              </span>
+              <span className="file-drop-copy">
+                <strong>{file ? "Change file" : "Choose a file"}</strong>
+                <span>{file ? file.name : "PDF, image, or scanned report"}</span>
+              </span>
+              <input
+                type="file"
+                accept="application/pdf,image/*,.txt,.png,.jpg,.jpeg"
+                required
+                onChange={(e) => setFile(e.target.files?.[0] || null)}
+              />
+            </span>
+          </label>
+
+          <div className="row" style={{ marginTop: "0.25rem" }}>
+            <button className="btn" disabled={busy || !file}>
+              {busy ? "Extracting…" : "Extract and open Order Desk"}
+            </button>
+            <Link className="btn secondary" href="/doctor">
+              Skip upload
+            </Link>
+          </div>
+
+          {result && (
+            <p className="badge green" style={{ marginTop: "1rem" }}>
+              Extraction {result.extraction_status}. Opening Order Desk…
+            </p>
+          )}
+        </form>
+
+        <aside className="card upload-demo-card">
+          <p className="kicker-sm">Demo samples</p>
+          <h2 className="title" style={{ marginBottom: "0.35rem" }}>
+            UHC Dual Complete OH-S3
+          </h2>
+          <p className="muted" style={{ marginTop: 0, marginBottom: "0.85rem" }}>
+            Synthetic charts that match the live catalog. Download, then upload on the left. Not real PHI.
+          </p>
+
+          <ul className="demo-report-list">
+            {DEMO_REPORTS.map((row) => (
+              <li key={row.href}>
+                <a href={row.href} download>
+                  <span className="demo-report-name">{row.name}</span>
+                  <span className="demo-report-service">{row.service}</span>
+                </a>
+                {paBadge(row.pa)}
+              </li>
+            ))}
+          </ul>
+
+          <p className="muted" style={{ marginTop: "0.85rem", marginBottom: 0, fontSize: "0.8rem" }}>
+            On disk: <code>demo-patient-reports/</code>
+          </p>
+        </aside>
+      </div>
     </main>
   );
 }
