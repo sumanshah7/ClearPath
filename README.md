@@ -73,6 +73,25 @@ Copy `.env.example` → `.env`. Important variables:
 
 **`.env` is gitignored.** Do not commit API keys.
 
+## Deploy web (Vercel)
+
+The Next.js app lives in `web/`. The FastAPI engine (`pa-engine/`) must be hosted separately (Railway, Render, Fly, etc.) — Vercel serves the UI.
+
+```bash
+cd web
+npx vercel          # preview
+npx vercel --prod   # production (confirm first)
+```
+
+In the Vercel project settings (Root Directory = `web`), set:
+
+| Variable | Example |
+|----------|---------|
+| `PA_ENGINE_URL` | `https://your-pa-engine.example.com` |
+| `NEXT_PUBLIC_PA_ENGINE_URL` | leave empty to keep using `/engine` proxy, or set the same public API URL |
+
+Local rewrites still point at `http://127.0.0.1:8000` when those vars are unset.
+
 ## Safety / product notes
 
 - No denial path in the demo insurer (`approved` / `info_requested` only).  

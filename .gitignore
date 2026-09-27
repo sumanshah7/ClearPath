@@ -21,6 +21,7 @@ node_modules/
 .next/
 out/
 .turbo/
+.vercel/
 
 # Local databases and uploads
 data/*.db
