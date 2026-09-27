@@ -75,7 +75,8 @@ Copy `.env.example` → `.env`. Important variables:
 
 ## Deploy web (Vercel)
 
-The Next.js app lives in `web/`. The FastAPI engine (`pa-engine/`) must be hosted separately (Railway, Render, Fly, etc.) — Vercel serves the UI.
+Live UI (first deploy): **https://web-pied-three-49.vercel.app**  
+Project: `clear-path13/clearpath` · GitHub: `sumanshah7/ClearPath` · Root Directory: `web`
 
 ```bash
 cd web
@@ -83,14 +84,25 @@ npx vercel          # preview
 npx vercel --prod   # production (confirm first)
 ```
 
-In the Vercel project settings (Root Directory = `web`), set:
+Set on the Vercel project when the PA engine is hosted:
 
 | Variable | Example |
 |----------|---------|
 | `PA_ENGINE_URL` | `https://your-pa-engine.example.com` |
-| `NEXT_PUBLIC_PA_ENGINE_URL` | leave empty to keep using `/engine` proxy, or set the same public API URL |
 
-Local rewrites still point at `http://127.0.0.1:8000` when those vars are unset.
+Until `PA_ENGINE_URL` is set, `/engine/*` rewrites target localhost and API calls fail on Vercel (`DNS_HOSTNAME_RESOLVED_PRIVATE`).
+
+## Deploy PA engine (container)
+
+FastAPI + SQLite + PDF ingest is **not** a Vercel Function. Use Railway, Render, Fly, or any Docker host:
+
+```bash
+cd pa-engine
+docker build -t clearpath-pa-engine .
+docker run -p 8000:8000 --env-file ../.env -e ALLOWED_ORIGINS=https://web-pied-three-49.vercel.app clearpath-pa-engine
+```
+
+Then set `PA_ENGINE_URL` on the Vercel project to that public URL and redeploy.
 
 ## Safety / product notes
 

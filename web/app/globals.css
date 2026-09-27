@@ -1,13 +1,13 @@
 @import "tailwindcss";
-@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Source+Sans+3:wght@400;500;600;700&display=swap");
 
 /*
   ClearPath visual system — matched to product landing reference:
   deep medical teal, soft paper, equal radii, airy type hierarchy.
+  Fonts load via next/font in layout.tsx (Outfit + Source Sans 3).
 */
 @theme {
-  --font-sans: "Source Sans 3", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-display: "Outfit", "Source Sans 3", system-ui, sans-serif;
+  --font-sans: var(--font-source-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: var(--font-outfit), var(--font-source-sans), system-ui, sans-serif;
   --color-ink: #0b1220;
   --color-muted: #6b7280;
   --color-line: #e5e7eb;

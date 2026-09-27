@@ -1,0 +1,9 @@
+# Keep container context small; secrets and local DB stay out.
+.env
+.env.*
+__pycache__/
+*.pyc
+.pytest_cache/
+data/*.db
+data/artifacts/
+.venv/
