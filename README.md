@@ -75,8 +75,11 @@ Copy `.env.example` → `.env`. Important variables:
 
 ## Deploy web (Vercel)
 
-Live UI (first deploy): **https://web-pied-three-49.vercel.app**  
-Project: `clear-path13/clearpath` · GitHub: `sumanshah7/ClearPath` · Root Directory: `web`
+Live UI: **https://web-pied-three-49.vercel.app**  
+PA engine: **https://clearpath-engine.vercel.app**  
+Projects: `clear-path13/clearpath` (Root `web`) · `clear-path13/clearpath-engine` (Root `pa-engine`) · GitHub `sumanshah7/ClearPath`
+
+Doctor demo login: `ana.reyes` (or any clinician name/NPI from the seed users).
 
 ```bash
 cd web
